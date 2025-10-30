@@ -1,14 +1,11 @@
-// SEBELUM (SALAH):
-// const admin = require('firebase-admin');
-// const db = admin.firestore();
-
-// SESUDAH (BENAR):
 const { admin, db } = require("../config/firebase-config");
 const { validateReadingData } = require("../services/validationService");
+const {
+  onNewWaterQualityReading,
+} = require("../functions/triggers/readingTrigger");
 
 /**
  * CREATE - Terima data dari ESP32
- * POST /api/sensors/readings
  */
 exports.createReading = async (req, res) => {
   try {
@@ -73,7 +70,31 @@ exports.createReading = async (req, res) => {
 
     console.log("✅ Data saved with ID:", docRef.id);
 
-    // 5. RESPONSE SUCCESS
+    // 5. ⭐ TRIGGER FUZZY LOGIC (Simulate Cloud Function)
+    try {
+      console.log("🔥 Triggering fuzzy logic analysis...");
+
+      // Get the document we just created
+      const savedDoc = await docRef.get();
+
+      // Simulate Firestore trigger context
+      const context = {
+        params: { readingId: docRef.id },
+      };
+
+      // Call the trigger function
+      await onNewWaterQualityReading(savedDoc, context);
+
+      console.log("✅ Fuzzy logic trigger completed");
+    } catch (triggerError) {
+      console.error(
+        "⚠️  Fuzzy logic trigger failed (non-critical):",
+        triggerError.message
+      );
+      // Jangan gagalkan request jika trigger error
+    }
+
+    // 6. RESPONSE SUCCESS
     return res.status(201).json({
       success: true,
       message: "Data received and saved successfully",
