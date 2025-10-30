@@ -1,5 +1,5 @@
-# 1. Buat .gitignore yang proper dulu
-cat > .gitignore << 'EOF'
+# 1. Buat .gitignore dulu
+@"
 # Credentials & Secrets
 serviceAccount.json
 **/serviceAccount.json
@@ -27,4 +27,4 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
-EOF
+"@ | Out-File -FilePath .gitignore -Encoding utf8
