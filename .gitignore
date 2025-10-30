@@ -1,6 +1,4 @@
-# 1. Buat .gitignore dulu
-@"
-# Credentials & Secrets
+﻿# Credentials & Secrets
 serviceAccount.json
 **/serviceAccount.json
 firebase-adminsdk-*.json
@@ -11,20 +9,9 @@ firebase-adminsdk-*.json
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
 venv/
 env/
-ENV/
-*.egg-info/
 
-# IDE
+# IDE & OS
 .vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
 .DS_Store
-Thumbs.db
-"@ | Out-File -FilePath .gitignore -Encoding utf8
