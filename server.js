@@ -66,6 +66,11 @@ app.get("/admin/ping", requireAuth, requireAdmin, (req, res) => {
   });
 });
 
+console.log("Loading notificationRoutes...");
+const notificationRoutes = require("./routes/notificationRoutes");
+console.log("notificationRoutes type:", typeof notificationRoutes);
+app.use("/api/notifications", notificationRoutes);
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({
