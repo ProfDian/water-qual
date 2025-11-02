@@ -1,25 +1,30 @@
-const { admin, db, auth } = require("../config/firebase-config");
+/**
+ * ========================================
+ * AUTH CONTROLLER (Fixed)
+ * ========================================
+ * Login dengan Firebase REST API
+ * Generate custom JWT token (bukan Firebase ID token)
+ */
+
+const { admin, db } = require("../config/firebase-config");
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
-
-// Load from .env
 require("dotenv").config();
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-this";
 const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY;
 
-// ⭐ DEBUG: Cek API key di-load atau tidak
+// Debug
 console.log(
   "🔑 Firebase API Key loaded:",
   FIREBASE_API_KEY ? "✅ Yes" : "❌ No"
 );
-console.log(
-  "🔑 API Key preview:",
-  FIREBASE_API_KEY ? `${FIREBASE_API_KEY.substring(0, 10)}...` : "undefined"
-);
+console.log("🔑 JWT Secret loaded:", JWT_SECRET ? "✅ Yes" : "❌ No");
 
 /**
  * LOGIN
+ * Authenticate dengan Firebase REST API
+ * Generate custom JWT token untuk authorization
  */
 exports.login = async (req, res) => {
   try {
@@ -27,6 +32,7 @@ exports.login = async (req, res) => {
 
     console.log("📥 Login attempt for:", email);
 
+    // Validasi input
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -64,19 +70,12 @@ exports.login = async (req, res) => {
         authError.response?.data || authError.message
       );
 
-      // Detailed error handling
       const errorMessage =
         authError.response?.data?.error?.message || "Invalid email or password";
 
       return res.status(401).json({
         success: false,
         message: errorMessage,
-        debug:
-          process.env.NODE_ENV === "development"
-            ? {
-                firebaseError: authError.response?.data,
-              }
-            : undefined,
       });
     }
 
@@ -94,16 +93,17 @@ exports.login = async (req, res) => {
       userData = {
         email: firebaseUser.email,
         username: firebaseUser.email.split("@")[0],
-        role: "admin",
+        role: "admin", // Default role
         created_at: admin.firestore.FieldValue.serverTimestamp(),
       };
 
       await db.collection("users").doc(firebaseUser.localId).set(userData);
+      console.log("✅ User data created in Firestore");
     } else {
       userData = userDoc.data();
     }
 
-    // Generate JWT token
+    // Generate custom JWT token
     const token = jwt.sign(
       {
         uid: firebaseUser.localId,
@@ -114,6 +114,7 @@ exports.login = async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    console.log("✅ JWT token generated");
     console.log("✅ Login successful for:", email);
 
     return res.status(200).json({
@@ -138,14 +139,21 @@ exports.login = async (req, res) => {
   }
 };
 
+/**
+ * LOGOUT
+ */
 exports.logout = async (req, res) => {
   try {
     res.clearCookie("token");
+
+    console.log("🚪 User logged out:", req.user?.email || "unknown");
+
     return res.status(200).json({
       success: true,
       message: "Logout successful",
     });
   } catch (error) {
+    console.error("❌ Logout error:", error);
     return res.status(500).json({
       success: false,
       message: "Logout failed",
@@ -154,9 +162,13 @@ exports.logout = async (req, res) => {
   }
 };
 
+/**
+ * GET PROFILE
+ */
 exports.getProfile = async (req, res) => {
   try {
-    const { uid } = req.user;
+    const { uid } = req.user; // From auth middleware
+
     const userDoc = await db.collection("users").doc(uid).get();
 
     if (!userDoc.exists) {
@@ -166,14 +178,22 @@ exports.getProfile = async (req, res) => {
       });
     }
 
+    const userData = userDoc.data();
+
+    console.log("👤 Profile fetched for:", userData.email);
+
     return res.status(200).json({
       success: true,
       data: {
         uid,
-        ...userDoc.data(),
+        email: userData.email,
+        username: userData.username,
+        role: userData.role,
+        created_at: userData.created_at,
       },
     });
   } catch (error) {
+    console.error("❌ Get profile error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to get profile",
@@ -182,4 +202,4 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-console.log("📦 authController exports:", Object.keys(module.exports));
+console.log("📦 authController loaded");

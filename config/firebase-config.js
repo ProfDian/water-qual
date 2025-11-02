@@ -1,11 +1,11 @@
 const admin = require("firebase-admin");
-const serviceAccount = require("../serviceAccount.json");
+const serviceAccounts = require("../serviceAccounts.json");
 
 // Initialize Firebase Admin
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`,
+    credential: admin.credential.cert(serviceAccounts),
+    databaseURL: `https://${serviceAccounts.project_id}.firebaseio.com`,
   });
   console.log("✅ Firebase Admin initialized");
 } else {

@@ -1,66 +1,88 @@
-const jwt = require("jsonwebtoken");
-const { admin, db } = require("../config/firebase-config");
+/**
+ * ========================================
+ * AUTH MIDDLEWARE (Fixed)
+ * ========================================
+ * Verify custom JWT token (bukan Firebase ID token)
+ * Konsisten dengan authController yang generate custom JWT
+ */
 
-const JWT_SECRET =
-  process.env.JWT_SECRET || "your-secret-key-change-this-in-production";
+const jwt = require("jsonwebtoken");
+const { db } = require("../config/firebase-config");
+require("dotenv").config();
+
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-this";
 
 /**
- * Middleware: Verify JWT Token
+ * Require authentication - Verify custom JWT token
  */
 exports.requireAuth = async (req, res, next) => {
   try {
-    // Get token from header
+    // Get token from Authorization header
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: "No token provided",
+        message: "No token provided. Please login first.",
       });
     }
 
+    // Extract token (format: "Bearer <token>")
     const token = authHeader.split(" ")[1];
 
-    // Verify JWT
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    // Get user from Firestore
-    const userDoc = await db.collection("users").doc(decoded.uid).get();
-
-    if (!userDoc.exists) {
+    if (!token) {
       return res.status(401).json({
         success: false,
-        message: "User not found",
+        message: "Invalid token format",
       });
     }
 
-    // Attach user to request
+    console.log("🔐 Verifying JWT token...");
+
+    // Verify JWT token
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    console.log("✅ Token verified for user:", decoded.email);
+
+    // Optional: Get latest user data from Firestore
+    // (untuk ambil role terbaru kalau ada update)
+    const userDoc = await db.collection("users").doc(decoded.uid).get();
+
+    let role = decoded.role || "user"; // Default dari token
+    if (userDoc.exists) {
+      role = userDoc.data().role || role; // Update dari Firestore
+    }
+
+    // Attach user info to request object
     req.user = {
       uid: decoded.uid,
       email: decoded.email,
-      role: decoded.role,
-      ...userDoc.data(),
+      role: role,
     };
 
+    console.log("✅ Auth success:", req.user.email, "| Role:", req.user.role);
+
+    // Continue to next middleware/route handler
     next();
   } catch (error) {
-    console.error("Auth middleware error:", error);
+    console.error("❌ Auth middleware error:", error.message);
+
+    // Handle specific JWT errors
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "Token expired. Please login again.",
+      });
+    }
 
     if (error.name === "JsonWebTokenError") {
       return res.status(401).json({
         success: false,
-        message: "Invalid token",
+        message: "Invalid token. Please login again.",
       });
     }
 
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({
-        success: false,
-        message: "Token expired",
-      });
-    }
-
-    return res.status(500).json({
+    return res.status(401).json({
       success: false,
       message: "Authentication failed",
       error: error.message,
@@ -69,17 +91,47 @@ exports.requireAuth = async (req, res, next) => {
 };
 
 /**
- * Middleware: Require Admin Role
+ * Require admin role
  */
 exports.requireAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({
+  if (!req.user) {
+    return res.status(401).json({
       success: false,
-      message: "Access denied. Admin only.",
+      message: "Authentication required",
     });
   }
+
+  if (req.user.role !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Admin access required. Your role: " + req.user.role,
+    });
+  }
+
+  console.log("✅ Admin access granted:", req.user.email);
   next();
 };
 
-// Debug
-console.log("📦 authMiddleware exports:", Object.keys(module.exports));
+/**
+ * Require manager role (admin atau manager)
+ */
+exports.requireManager = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
+  }
+
+  if (req.user.role !== "admin" && req.user.role !== "manager") {
+    return res.status(403).json({
+      success: false,
+      message: "Manager access required. Your role: " + req.user.role,
+    });
+  }
+
+  console.log("✅ Manager access granted:", req.user.email);
+  next();
+};
+
+console.log("📦 authMiddleware loaded (JWT verify)");

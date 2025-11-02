@@ -10,13 +10,18 @@ const port = process.env.PORT || 3000;
 
 const { requireAuth, requireAdmin } = require("./middleware/authMiddleware");
 
+// CORS Configuration
+const corsOptions = {
+  origin: "http://localhost:5173", // Frontend URL (Vite)
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+  optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions)); // Apply CORS configuration
+
 // Middleware
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
-);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -36,7 +41,7 @@ app.get("/", (req, res) => {
 });
 
 // ========================================
-// ROUTES - TEST ONE BY ONE
+// ROUTES
 // ========================================
 
 // 1. Auth routes
@@ -51,12 +56,23 @@ const sensorRoutes = require("./routes/sensorRoutes");
 console.log("sensorRoutes type:", typeof sensorRoutes);
 app.use("/api/sensors", sensorRoutes);
 
-// 3. Alert routes (KEMUNGKINAN INI YANG ERROR)
+// 3. Alert routes
 console.log("Loading alertRoutes...");
 const alertRoutes = require("./routes/alertRoutes");
 console.log("alertRoutes type:", typeof alertRoutes);
-console.log("alertRoutes value:", alertRoutes);
-app.use("/api/alerts", alertRoutes); // ← LINE 47 (ERROR DI SINI)
+app.use("/api/alerts", alertRoutes);
+
+// 4. Dashboard routes ← TAMBAH INI
+console.log("Loading dashboardRoutes...");
+const dashboardRoutes = require("./routes/dashboardRoutes");
+console.log("dashboardRoutes type:", typeof dashboardRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+
+// 5. Notification routes
+console.log("Loading notificationRoutes...");
+const notificationRoutes = require("./routes/notificationRoutes");
+console.log("notificationRoutes type:", typeof notificationRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Admin test
 app.get("/admin/ping", requireAuth, requireAdmin, (req, res) => {
@@ -65,11 +81,6 @@ app.get("/admin/ping", requireAuth, requireAdmin, (req, res) => {
     user: req.user,
   });
 });
-
-console.log("Loading notificationRoutes...");
-const notificationRoutes = require("./routes/notificationRoutes");
-console.log("notificationRoutes type:", typeof notificationRoutes);
-app.use("/api/notifications", notificationRoutes);
 
 // 404 handler
 app.use((req, res) => {

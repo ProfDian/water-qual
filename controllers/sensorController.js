@@ -1,7 +1,7 @@
 const { admin, db } = require("../config/firebase-config");
 const { validateReadingData } = require("../services/validationService");
 const {
-  onNewWaterQualityReading,
+  onNewWaterQualityReadinguiopg,
 } = require("../functions/triggers/readingTrigger");
 
 /**
