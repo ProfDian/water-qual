@@ -72,6 +72,8 @@ exports.createReading = async (req, res) => {
         turbidity: parseFloat(outlet.turbidity.toFixed(2)),
         temperature: parseFloat(outlet.temperature.toFixed(2)),
       },
+      // ⭐⭐⭐ TAMBAH INI - Save sensor_mapping
+      ...(value.sensor_mapping && { sensor_mapping: value.sensor_mapping }),
       created_at: admin.firestore.FieldValue.serverTimestamp(),
     };
 

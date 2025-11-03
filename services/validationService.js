@@ -1,3 +1,4 @@
+// services/validationService.js
 const Joi = require("joi");
 
 // Schema validasi untuk data sensor
@@ -16,7 +17,7 @@ const readingSchema = Joi.object({
     turbidity: Joi.number().min(0).max(4000).required(),
     temperature: Joi.number().min(-10).max(60).required(),
   }).required(),
-  // ⭐ TAMBAH INI - Optional sensor mapping
+  // ⭐ TAMBAH INI - sensor_mapping
   sensor_mapping: Joi.object({
     inlet_ph: Joi.string().optional(),
     inlet_tds: Joi.string().optional(),
