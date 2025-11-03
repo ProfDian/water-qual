@@ -1,9 +1,9 @@
 /**
  * ========================================
- * AUTH CONTROLLER (Fixed)
+ * AUTH CONTROLLER (UPDATED)
  * ========================================
- * Login dengan Firebase REST API
- * Generate custom JWT token (bukan Firebase ID token)
+ * Menambahkan getProfile function
+ * This extends your existing authController.js
  */
 
 const { admin, db } = require("../config/firebase-config");
@@ -22,9 +22,7 @@ console.log(
 console.log("🔑 JWT Secret loaded:", JWT_SECRET ? "✅ Yes" : "❌ No");
 
 /**
- * LOGIN
- * Authenticate dengan Firebase REST API
- * Generate custom JWT token untuk authorization
+ * LOGIN (EXISTING - keep as is)
  */
 exports.login = async (req, res) => {
   try {
@@ -90,15 +88,15 @@ exports.login = async (req, res) => {
     if (!userDoc.exists) {
       console.log("⚠️  User authenticated but no Firestore data. Creating...");
 
+      // Buat user baru di Firestore
       userData = {
         email: firebaseUser.email,
         username: firebaseUser.email.split("@")[0],
-        role: "admin", // Default role
-        created_at: admin.firestore.FieldValue.serverTimestamp(),
+        role: "guest",
+        created_at: new Date().toISOString(),
       };
 
       await db.collection("users").doc(firebaseUser.localId).set(userData);
-      console.log("✅ User data created in Firestore");
     } else {
       userData = userDoc.data();
     }
@@ -107,30 +105,36 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       {
         uid: firebaseUser.localId,
-        email: firebaseUser.email,
+        email: userData.email,
         role: userData.role,
       },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "24h" }
     );
 
-    console.log("✅ JWT token generated");
-    console.log("✅ Login successful for:", email);
+    console.log("✅ Login successful for:", userData.email);
 
+    // Set token di cookie (optional)
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    });
+
+    // Response
     return res.status(200).json({
       success: true,
       message: "Login successful",
-      token,
+      token: token,
       user: {
         uid: firebaseUser.localId,
-        email: firebaseUser.email,
+        email: userData.email,
         username: userData.username,
         role: userData.role,
       },
     });
   } catch (error) {
     console.error("💥 Login error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Login failed",
@@ -140,20 +144,21 @@ exports.login = async (req, res) => {
 };
 
 /**
- * LOGOUT
+ * LOGOUT (EXISTING - keep as is)
  */
 exports.logout = async (req, res) => {
   try {
+    // Clear token cookie
     res.clearCookie("token");
 
-    console.log("🚪 User logged out:", req.user?.email || "unknown");
+    console.log("✅ Logout successful");
 
     return res.status(200).json({
       success: true,
       message: "Logout successful",
     });
   } catch (error) {
-    console.error("❌ Logout error:", error);
+    console.error("💥 Logout error:", error);
     return res.status(500).json({
       success: false,
       message: "Logout failed",
@@ -163,37 +168,48 @@ exports.logout = async (req, res) => {
 };
 
 /**
- * GET PROFILE
+ * GET PROFILE (NEW)
+ * Endpoint: GET /auth/profile
+ * Protected route - requires authentication
  */
 exports.getProfile = async (req, res) => {
   try {
-    const { uid } = req.user; // From auth middleware
+    const user = req.user; // From authMiddleware
 
-    const userDoc = await db.collection("users").doc(uid).get();
+    console.log("👤 Getting profile for:", user.email);
+
+    // Get full user data from Firestore
+    const userDoc = await db.collection("users").doc(user.uid).get();
 
     if (!userDoc.exists) {
+      console.error("❌ User not found in Firestore:", user.uid);
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "User profile not found",
       });
     }
 
     const userData = userDoc.data();
 
-    console.log("👤 Profile fetched for:", userData.email);
+    // Prepare response data
+    const profileData = {
+      uid: user.uid,
+      email: userData.email,
+      username: userData.username || userData.email.split("@")[0],
+      role: userData.role,
+      created_at: userData.created_at,
+      fcm_token: userData.fcm_token || null,
+      fcm_token_updated_at: userData.fcm_token_updated_at || null,
+    };
+
+    console.log("✅ Profile retrieved for:", user.email);
 
     return res.status(200).json({
       success: true,
-      data: {
-        uid,
-        email: userData.email,
-        username: userData.username,
-        role: userData.role,
-        created_at: userData.created_at,
-      },
+      user: profileData,
     });
   } catch (error) {
-    console.error("❌ Get profile error:", error);
+    console.error("💥 Error getting profile:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to get profile",
@@ -202,4 +218,4 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-console.log("📦 authController loaded");
+console.log("📦 authController (with getProfile) loaded");

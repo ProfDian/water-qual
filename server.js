@@ -49,6 +49,7 @@ console.log("Loading authRoutes...");
 const authRoutes = require("./routes/authroutes");
 console.log("authRoutes type:", typeof authRoutes);
 app.use("/auth", authRoutes);
+app.use("/profile", requireAuth, authRoutes);
 
 // 2. Sensor routes
 console.log("Loading sensorRoutes...");
@@ -73,6 +74,12 @@ console.log("Loading notificationRoutes...");
 const notificationRoutes = require("./routes/notificationRoutes");
 console.log("notificationRoutes type:", typeof notificationRoutes);
 app.use("/api/notifications", notificationRoutes);
+
+// 6. REPORT ROUTES
+console.log("Loading reportRoutes...");
+const reportRoutes = require("./routes/reportRoutes");
+console.log("reportRoutes type:", typeof reportRoutes);
+app.use("/api/reports", reportRoutes);
 
 // Admin test
 app.get("/admin/ping", requireAuth, requireAdmin, (req, res) => {
