@@ -6,6 +6,12 @@ firebase-adminsdk-*.json
 .env.*
 !.env.example
 
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json  # optional, some teams commit this
+
 # Python
 __pycache__/
 *.py[cod]
