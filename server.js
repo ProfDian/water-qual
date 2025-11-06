@@ -15,6 +15,7 @@ const corsOptions = {
   origin: "http://localhost:5173", // Frontend URL (Vite)
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  exposedHeaders: ["Content-Disposition", "Content-Type"], // ⭐ ADD THIS - Allow browser to read these headers
   credentials: true,
   optionsSuccessStatus: 200,
 };
@@ -49,7 +50,6 @@ console.log("Loading authRoutes...");
 const authRoutes = require("./routes/authroutes");
 console.log("authRoutes type:", typeof authRoutes);
 app.use("/auth", authRoutes);
-app.use("/profile", requireAuth, authRoutes);
 
 // 2. Sensor routes
 console.log("Loading sensorRoutes...");
@@ -63,7 +63,7 @@ const alertRoutes = require("./routes/alertRoutes");
 console.log("alertRoutes type:", typeof alertRoutes);
 app.use("/api/alerts", alertRoutes);
 
-// 4. Dashboard routes ← TAMBAH INI
+// 4. Dashboard routes
 console.log("Loading dashboardRoutes...");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 console.log("dashboardRoutes type:", typeof dashboardRoutes);
@@ -75,7 +75,9 @@ const notificationRoutes = require("./routes/notificationRoutes");
 console.log("notificationRoutes type:", typeof notificationRoutes);
 app.use("/api/notifications", notificationRoutes);
 
-// 6. REPORT ROUTES
+// ========================================
+// 6. REPORT ROUTES (NEW - ADD THIS!)
+// ========================================
 console.log("Loading reportRoutes...");
 const reportRoutes = require("./routes/reportRoutes");
 console.log("reportRoutes type:", typeof reportRoutes);
@@ -112,3 +114,7 @@ app.listen(port, () => {
   console.log(`🚀 Server running at http://localhost:${port}`);
   console.log("========================================\n");
 });
+
+module.exports = app;
+
+// ========================================

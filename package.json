@@ -22,11 +22,12 @@
     "express-validator": "^7.2.1",
     "firebase-admin": "^13.5.0",
     "firebase-functions": "^6.5.0",
+    "html-pdf-node": "^1.0.8",
     "joi": "^18.0.1",
     "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.10",
-    "pdfkit": "^0.17.2"
+    "pdfkit": "^0.13.0"
   }
 }

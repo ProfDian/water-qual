@@ -1,441 +1,210 @@
 /**
  * ========================================
- * REPORT CONTROLLER
+ * REPORT CONTROLLER V3 (FIXED)
  * ========================================
- * Controller untuk export data sensor & alerts
- * Supports CSV and Excel formats
  */
 
-const { db, admin } = require("../config/firebase-config");
-const { Parser } = require("json2csv");
-const ExcelJS = require("exceljs");
+const reportService = require("../services/reportService");
 
 /**
- * ========================================
- * HELPER: Query Water Quality Readings
- * ========================================
+ * GET /api/reports/export
+ * Generate & download report
  */
-async function getWaterQualityData(filters) {
-  const { ipal_id, start_date, end_date, parameter } = filters;
+exports.exportReport = async (req, res) => {
+  try {
+    const {
+      format,
+      start_date,
+      end_date,
+      ipal_id = 1,
+      parameters,
+      location = "both",
+    } = req.query;
 
-  let query = db.collection("water_quality_readings");
+    console.log("📊 Export report request:", {
+      format,
+      start_date,
+      end_date,
+      ipal_id,
+      parameters,
+      location,
+    });
 
-  // Filter by IPAL ID
-  if (ipal_id) {
-    query = query.where("ipal_id", "==", parseInt(ipal_id));
-  }
+    // Validation
+    if (!format) {
+      return res.status(400).json({
+        success: false,
+        message: "Format is required (csv, excel, or pdf)",
+      });
+    }
 
-  // Filter by date range
-  if (start_date) {
-    const startTimestamp = admin.firestore.Timestamp.fromDate(
-      new Date(start_date)
-    );
-    query = query.where("timestamp", ">=", startTimestamp);
-  }
+    if (!start_date || !end_date) {
+      return res.status(400).json({
+        success: false,
+        message: "start_date and end_date are required",
+      });
+    }
 
-  if (end_date) {
-    const endTimestamp = admin.firestore.Timestamp.fromDate(
-      new Date(end_date + "T23:59:59Z")
-    );
-    query = query.where("timestamp", "<=", endTimestamp);
-  }
+    // Parse parameters
+    const paramList = parameters
+      ? parameters.split(",").map((p) => p.trim())
+      : ["ph", "tds", "turbidity", "temperature"];
 
-  // Order by timestamp
-  query = query.orderBy("timestamp", "desc");
-
-  // Execute query
-  const snapshot = await query.get();
-
-  if (snapshot.empty) {
-    return [];
-  }
-
-  // Transform data
-  const data = [];
-  snapshot.forEach((doc) => {
-    const docData = doc.data();
-
-    // Base row
-    const baseRow = {
-      id: doc.id,
-      ipal_id: docData.ipal_id,
-      device_id: docData.device_id || "unknown",
-      timestamp: docData.timestamp?.toDate
-        ? docData.timestamp.toDate().toISOString()
-        : null,
+    const filters = {
+      ipal_id,
+      start_date,
+      end_date,
+      parameters: paramList,
+      location,
     };
 
-    // Include all parameters or specific one
-    if (!parameter || parameter === "all") {
-      data.push({
-        ...baseRow,
-        inlet_ph: docData.inlet?.ph,
-        inlet_tds: docData.inlet?.tds,
-        inlet_turbidity: docData.inlet?.turbidity,
-        inlet_temperature: docData.inlet?.temperature,
-        outlet_ph: docData.outlet?.ph,
-        outlet_tds: docData.outlet?.tds,
-        outlet_turbidity: docData.outlet?.turbidity,
-        outlet_temperature: docData.outlet?.temperature,
-      });
-    } else {
-      // Specific parameter only
-      data.push({
-        ...baseRow,
-        [`inlet_${parameter}`]: docData.inlet?.[parameter],
-        [`outlet_${parameter}`]: docData.outlet?.[parameter],
-      });
-    }
-  });
-
-  return data;
-}
-
-/**
- * ========================================
- * HELPER: Query Alerts Data
- * ========================================
- */
-async function getAlertsData(filters) {
-  const { ipal_id, start_date, end_date, severity } = filters;
-
-  let query = db.collection("alerts");
-
-  // Filter by IPAL ID
-  if (ipal_id) {
-    query = query.where("ipal_id", "==", parseInt(ipal_id));
-  }
-
-  // Filter by severity
-  if (severity) {
-    query = query.where("severity", "==", severity);
-  }
-
-  // Filter by date range
-  if (start_date) {
-    const startTimestamp = admin.firestore.Timestamp.fromDate(
-      new Date(start_date)
-    );
-    query = query.where("timestamp", ">=", startTimestamp);
-  }
-
-  if (end_date) {
-    const endTimestamp = admin.firestore.Timestamp.fromDate(
-      new Date(end_date + "T23:59:59Z")
-    );
-    query = query.where("timestamp", "<=", endTimestamp);
-  }
-
-  // Order by timestamp
-  query = query.orderBy("timestamp", "desc");
-
-  // Execute query
-  const snapshot = await query.get();
-
-  if (snapshot.empty) {
-    return [];
-  }
-
-  // Transform data
-  const data = [];
-  snapshot.forEach((doc) => {
-    const docData = doc.data();
-    data.push({
-      alert_id: doc.id,
-      ipal_id: docData.ipal_id,
-      parameter: docData.parameter,
-      location: docData.location,
-      rule: docData.rule,
-      severity: docData.severity,
-      status: docData.status,
-      inlet_value: docData.inlet_value,
-      outlet_value: docData.outlet_value,
-      threshold_value: docData.threshold_value,
-      message: docData.message,
-      timestamp: docData.timestamp?.toDate
-        ? docData.timestamp.toDate().toISOString()
-        : null,
-      read: docData.read || false,
-    });
-  });
-
-  return data;
-}
-
-/**
- * ========================================
- * EXPORT DATA TO CSV
- * ========================================
- */
-async function generateCSV(data, filename) {
-  if (!data || data.length === 0) {
-    throw new Error("No data to export");
-  }
-
-  // Define fields (CSV columns)
-  const fields = Object.keys(data[0]);
-
-  // Create parser
-  const json2csvParser = new Parser({ fields });
-
-  // Generate CSV
-  const csv = json2csvParser.parse(data);
-
-  return {
-    data: csv,
-    filename: `${filename}.csv`,
-    contentType: "text/csv",
-  };
-}
-
-/**
- * ========================================
- * EXPORT DATA TO EXCEL
- * ========================================
- */
-async function generateExcel(data, filename, sheetName = "Data") {
-  if (!data || data.length === 0) {
-    throw new Error("No data to export");
-  }
-
-  // Create workbook
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = "IPAL Monitoring System";
-  workbook.created = new Date();
-
-  // Add worksheet
-  const worksheet = workbook.addWorksheet(sheetName);
-
-  // Get columns from data keys
-  const columns = Object.keys(data[0]).map((key) => ({
-    header: key
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" "),
-    key: key,
-    width: 20,
-  }));
-
-  worksheet.columns = columns;
-
-  // Add rows
-  data.forEach((row) => {
-    worksheet.addRow(row);
-  });
-
-  // Style header row
-  worksheet.getRow(1).font = { bold: true };
-  worksheet.getRow(1).fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FF4472C4" },
-  };
-  worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
-
-  // Auto-filter
-  worksheet.autoFilter = {
-    from: { row: 1, column: 1 },
-    to: { row: 1, column: columns.length },
-  };
-
-  // Generate buffer
-  const buffer = await workbook.xlsx.writeBuffer();
-
-  return {
-    data: buffer,
-    filename: `${filename}.xlsx`,
-    contentType:
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  };
-}
-
-/**
- * ========================================
- * ENDPOINT: EXPORT SENSOR DATA
- * ========================================
- */
-exports.exportData = async (req, res) => {
-  try {
-    const { format, ipal_id, start_date, end_date, parameter } = req.query;
-    const user = req.user;
-
-    console.log("📊 Export request from:", user.email);
-    console.log("   Format:", format);
-    console.log("   Filters:", { ipal_id, start_date, end_date, parameter });
-
-    // Validate format
-    if (!format || !["csv", "excel"].includes(format.toLowerCase())) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid format. Use 'csv' or 'excel'",
-      });
-    }
-
-    // Get data
-    console.log("🔍 Fetching water quality data...");
-    const data = await getWaterQualityData({
-      ipal_id,
-      start_date,
-      end_date,
-      parameter,
-    });
+    // Fetch data
+    console.log("🔍 Fetching data...");
+    const data = await reportService.fetchWaterQualityData(filters);
 
     if (data.length === 0) {
-      return res.status(200).json({
-        success: true,
-        message: "No data found for the specified filters",
-        count: 0,
-        data: [],
+      return res.status(404).json({
+        success: false,
+        message: "No data found for the specified period",
       });
     }
 
-    console.log(`✅ Found ${data.length} records`);
+    console.log(`✅ Found ${data.length} readings`);
 
-    // Generate filename
-    const timestamp = new Date().toISOString().split("T")[0];
-    const filename = `water_quality_data_${timestamp}`;
+    // Calculate summary
+    const summary = reportService.calculateSummary(data, paramList);
 
-    // Generate export file
-    let exportFile;
-    if (format.toLowerCase() === "csv") {
-      exportFile = await generateCSV(data, filename);
-    } else {
-      exportFile = await generateExcel(data, filename, "Water Quality Data");
+    // Generate report based on format
+    let fileContent;
+    let contentType;
+    let fileName;
+
+    try {
+      if (format === "csv") {
+        console.log("📄 Generating CSV...");
+        fileContent = reportService.generateCSV(data);
+        contentType = "text/csv; charset=utf-8";
+        fileName = `water_quality_report_${start_date}_${end_date}.csv`;
+      } else if (format === "excel") {
+        console.log("📊 Generating Excel...");
+        fileContent = await reportService.generateExcel(data, summary, filters);
+        contentType =
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        fileName = `water_quality_report_${start_date}_${end_date}.xlsx`;
+      } else if (format === "pdf") {
+        console.log("📄 Generating PDF...");
+        fileContent = await reportService.generatePDF(data, summary, filters);
+        contentType = "application/pdf";
+        fileName = `water_quality_report_${start_date}_${end_date}.pdf`;
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid format. Use csv, excel, or pdf",
+        });
+      }
+
+      console.log(`✅ Report generated: ${fileName}`);
+
+      // Send file
+      res.setHeader("Content-Type", contentType);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${fileName}"`
+      );
+      res.setHeader("Content-Length", Buffer.byteLength(fileContent));
+
+      return res.send(fileContent);
+    } catch (genError) {
+      console.error("❌ Error generating file:", genError);
+      return res.status(500).json({
+        success: false,
+        message: `Failed to generate ${format} file`,
+        error: genError.message,
+      });
     }
-
-    // Set headers
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${exportFile.filename}"`
-    );
-    res.setHeader("Content-Type", exportFile.contentType);
-
-    console.log(`✅ Sending file: ${exportFile.filename}`);
-
-    // Send file
-    return res.send(exportFile.data);
   } catch (error) {
-    console.error("💥 Error exporting data:", error);
+    console.error("❌ Error in exportReport:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to export data",
+      message: "Failed to export report",
       error: error.message,
     });
   }
 };
 
 /**
- * ========================================
- * ENDPOINT: EXPORT ALERTS SUMMARY
- * ========================================
+ * GET /api/reports/preview
+ * Preview summary before download
  */
-exports.exportAlertsSummary = async (req, res) => {
+exports.previewReport = async (req, res) => {
   try {
-    const { format, ipal_id, start_date, end_date, severity } = req.query;
-    const user = req.user;
+    const {
+      start_date,
+      end_date,
+      ipal_id = 1,
+      parameters,
+      location = "both",
+    } = req.query;
 
-    console.log("🚨 Alert export request from:", user.email);
-    console.log("   Format:", format);
-    console.log("   Filters:", { ipal_id, start_date, end_date, severity });
+    console.log("👁️ Preview report request:", {
+      start_date,
+      end_date,
+      ipal_id,
+      parameters,
+      location,
+    });
 
-    // Validate format
-    if (!format || !["csv", "excel"].includes(format.toLowerCase())) {
+    // Validation
+    if (!start_date || !end_date) {
       return res.status(400).json({
         success: false,
-        message: "Invalid format. Use 'csv' or 'excel'",
+        message: "start_date and end_date are required",
       });
     }
 
-    // Get data
-    console.log("🔍 Fetching alerts data...");
-    const data = await getAlertsData({
+    // Parse parameters
+    const paramList = parameters
+      ? parameters.split(",").map((p) => p.trim())
+      : ["ph", "tds", "turbidity", "temperature"];
+
+    const filters = {
       ipal_id,
       start_date,
       end_date,
-      severity,
-    });
+      parameters: paramList,
+      location,
+    };
+
+    // Fetch data
+    const data = await reportService.fetchWaterQualityData(filters);
 
     if (data.length === 0) {
-      return res.status(200).json({
-        success: true,
-        message: "No alerts found for the specified filters",
-        count: 0,
-        data: [],
+      return res.status(404).json({
+        success: false,
+        message: "No data found for the specified period",
       });
     }
 
-    console.log(`✅ Found ${data.length} alerts`);
+    // Calculate summary
+    const summary = reportService.calculateSummary(data, paramList);
 
-    // Generate filename
-    const timestamp = new Date().toISOString().split("T")[0];
-    const filename = `alerts_summary_${timestamp}`;
-
-    // Generate export file
-    let exportFile;
-    if (format.toLowerCase() === "csv") {
-      exportFile = await generateCSV(data, filename);
-    } else {
-      exportFile = await generateExcel(data, filename, "Alerts Summary");
-    }
-
-    // Set headers
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${exportFile.filename}"`
-    );
-    res.setHeader("Content-Type", exportFile.contentType);
-
-    console.log(`✅ Sending file: ${exportFile.filename}`);
-
-    // Send file
-    return res.send(exportFile.data);
-  } catch (error) {
-    console.error("💥 Error exporting alerts:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to export alerts",
-      error: error.message,
-    });
-  }
-};
-
-/**
- * ========================================
- * ENDPOINT: PREVIEW DATA (untuk UI)
- * ========================================
- */
-exports.previewData = async (req, res) => {
-  try {
-    const { ipal_id, start_date, end_date, parameter, limit = 100 } = req.query;
-
-    console.log("👀 Data preview request");
-    console.log("   Filters:", { ipal_id, start_date, end_date, parameter });
-
-    // Get data
-    let data = await getWaterQualityData({
-      ipal_id,
-      start_date,
-      end_date,
-      parameter,
-    });
-
-    // Limit results for preview
-    data = data.slice(0, parseInt(limit));
+    console.log(`✅ Preview generated: ${data.length} readings`);
 
     return res.status(200).json({
       success: true,
-      count: data.length,
-      preview: data,
-      message: `Showing ${data.length} records (limited for preview)`,
+      preview: {
+        ...summary,
+        sample_data: data.slice(0, 5), // First 5 rows
+      },
     });
   } catch (error) {
-    console.error("💥 Error previewing data:", error);
+    console.error("❌ Error in previewReport:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to preview data",
+      message: "Failed to generate preview",
       error: error.message,
     });
   }
 };
 
-console.log("📦 reportController loaded");
+console.log("📦 reportController (v3 - fixed) loaded");
