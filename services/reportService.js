@@ -1,13 +1,12 @@
 /**
  * ========================================
- * REPORT SERVICE V3 (FIXED)
+ * REPORT SERVICE V4 (FIXED + PDFKit)
  * ========================================
- * Using html-pdf-node for better PDF support
  */
 
 const { db, admin } = require("../config/firebase-config");
 const ExcelJS = require("exceljs");
-const pdf = require("html-pdf-node");
+const PDFDocument = require("pdfkit");
 
 const reportService = {
   /**
@@ -19,18 +18,16 @@ const reportService = {
       start_date,
       end_date,
       parameters = ["ph", "tds", "turbidity", "temperature"],
-      location = "both", // both, inlet, outlet
+      location = "both",
     } = filters;
 
     try {
       console.log("📊 Fetching water quality data with filters:", filters);
 
-      // Build query
       let query = db
         .collection("water_quality_readings")
         .where("ipal_id", "==", parseInt(ipal_id));
 
-      // Date filters
       if (start_date) {
         const startTimestamp = admin.firestore.Timestamp.fromDate(
           new Date(start_date + "T00:00:00Z")
@@ -53,7 +50,6 @@ const reportService = {
         return [];
       }
 
-      // Process data
       const data = [];
       snapshot.forEach((doc) => {
         const reading = doc.data();
@@ -65,14 +61,12 @@ const reportService = {
           reading_id: doc.id,
         };
 
-        // Add inlet data
         if (location === "both" || location === "inlet") {
           parameters.forEach((param) => {
             row[`inlet_${param}`] = reading.inlet?.[param] || null;
           });
         }
 
-        // Add outlet data
         if (location === "both" || location === "outlet") {
           parameters.forEach((param) => {
             row[`outlet_${param}`] = reading.outlet?.[param] || null;
@@ -106,7 +100,6 @@ const reportService = {
     };
 
     parameters.forEach((param) => {
-      // Inlet stats
       const inletValues = data
         .map((d) => d[`inlet_${param}`])
         .filter((v) => v != null);
@@ -122,7 +115,6 @@ const reportService = {
         };
       }
 
-      // Outlet stats
       const outletValues = data
         .map((d) => d[`outlet_${param}`])
         .filter((v) => v != null);
@@ -138,7 +130,6 @@ const reportService = {
         };
       }
 
-      // Calculate removal efficiency
       if (
         summary.parameters[`inlet_${param}`] &&
         summary.parameters[`outlet_${param}`]
@@ -157,26 +148,21 @@ const reportService = {
   },
 
   /**
-   * Generate CSV content
+   * Generate CSV content (returns STRING)
    */
   generateCSV: (data) => {
     if (!data || data.length === 0) {
       throw new Error("No data to export");
     }
 
-    // Get headers
     const headers = Object.keys(data[0]);
+    let csv = "\ufeff"; // BOM for UTF-8 Excel compatibility
+    csv += headers.join(",") + "\n";
 
-    // CSV header row
-    let csv = headers.join(",") + "\n";
-
-    // CSV data rows
     data.forEach((row) => {
       const values = headers.map((header) => {
         const value = row[header];
-        // Handle nulls
         if (value == null) return "";
-        // Escape commas and quotes
         if (
           typeof value === "string" &&
           (value.includes(",") || value.includes('"'))
@@ -192,7 +178,7 @@ const reportService = {
   },
 
   /**
-   * Generate Excel file
+   * Generate Excel file (returns BUFFER)
    */
   generateExcel: async (data, summary, filters) => {
     try {
@@ -207,7 +193,6 @@ const reportService = {
         { header: "Value", key: "value", width: 30 },
       ];
 
-      // Add summary data
       summarySheet.addRow({
         metric: "Report Generated",
         value: new Date().toLocaleString("id-ID"),
@@ -222,7 +207,6 @@ const reportService = {
       });
       summarySheet.addRow({ metric: "", value: "" });
 
-      // Add parameter statistics
       summarySheet.addRow({ metric: "Parameter Statistics", value: "" });
       Object.entries(summary.parameters).forEach(([key, stats]) => {
         if (typeof stats === "object" && stats !== null) {
@@ -236,7 +220,6 @@ const reportService = {
         }
       });
 
-      // Style summary sheet
       summarySheet.getRow(1).font = { bold: true, size: 12 };
       summarySheet.getRow(5).font = { bold: true, size: 11 };
       summarySheet.getRow(1).fill = {
@@ -260,7 +243,6 @@ const reportService = {
           dataSheet.addRow(row);
         });
 
-        // Style data sheet
         dataSheet.getRow(1).font = { bold: true };
         dataSheet.getRow(1).fill = {
           type: "pattern",
@@ -269,15 +251,15 @@ const reportService = {
         };
         dataSheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
 
-        // Auto-filter
         dataSheet.autoFilter = {
           from: { row: 1, column: 1 },
           to: { row: 1, column: headers.length },
         };
       }
 
-      // Return buffer
-      return await workbook.xlsx.writeBuffer();
+      // ✅ Return Buffer
+      const buffer = await workbook.xlsx.writeBuffer();
+      return buffer;
     } catch (error) {
       console.error("❌ Error generating Excel:", error);
       throw error;
@@ -285,175 +267,514 @@ const reportService = {
   },
 
   /**
-   * Generate PDF file using HTML template
+   * Generate PDF file using PDFKit (returns BUFFER)
+   */
+  /**
+   * Generate PDF file using PDFKit (returns BUFFER)
+   * Professional & Beautiful Design
    */
   generatePDF: async (data, summary, filters) => {
-    try {
-      // Create HTML content
-      const recentData = data.slice(0, 20);
+    return new Promise((resolve, reject) => {
+      try {
+        console.log("🔧 Starting PDF generation...");
+        console.log(`📊 Data rows: ${data.length}`);
 
-      let tableRows = "";
-      recentData.forEach((row) => {
-        const timestamp = row.timestamp
-          ? new Date(row.timestamp).toLocaleString("id-ID")
-          : "N/A";
+        // Create PDF document
+        const doc = new PDFDocument({
+          size: "A4",
+          margins: { top: 40, bottom: 60, left: 50, right: 50 },
+          bufferPages: true, // Enable page numbering
+          info: {
+            Title: "Water Quality Report",
+            Author: "IPAL Monitoring System - UNDIP",
+            Subject: "Water Quality Analysis Report",
+            Keywords: "water quality, IPAL, monitoring, UNDIP",
+          },
+        });
 
-        tableRows += `
-          <tr>
-            <td>${timestamp}</td>
-            <td>${row.inlet_ph != null ? row.inlet_ph : "-"}</td>
-            <td>${row.inlet_tds != null ? row.inlet_tds : "-"}</td>
-            <td>${row.outlet_ph != null ? row.outlet_ph : "-"}</td>
-            <td>${row.outlet_tds != null ? row.outlet_tds : "-"}</td>
-          </tr>
-        `;
-      });
+        // Collect buffer chunks
+        const chunks = [];
 
-      let parameterStats = "";
-      Object.entries(summary.parameters).forEach(([key, stats]) => {
-        if (typeof stats === "object" && stats !== null) {
-          parameterStats += `
-            <div style="margin-bottom: 10px;">
-              <strong>${key.toUpperCase()}</strong><br>
-              <span style="margin-left: 20px;">Average: ${stats.avg}</span><br>
-              <span style="margin-left: 20px;">Min: ${stats.min} | Max: ${
-            stats.max
-          }</span>
-            </div>
-          `;
-        } else if (typeof stats === "string") {
-          parameterStats += `
-            <div style="margin-bottom: 10px;">
-              <strong>${key.toUpperCase()}</strong><br>
-              <span style="margin-left: 20px;">${stats}</span>
-            </div>
-          `;
+        doc.on("data", (chunk) => {
+          chunks.push(chunk);
+        });
+
+        doc.on("end", () => {
+          const buffer = Buffer.concat(chunks);
+          console.log(`✅ PDF generation complete: ${buffer.length} bytes`);
+          resolve(buffer);
+        });
+
+        doc.on("error", (error) => {
+          console.error("❌ PDFKit error:", error);
+          reject(error);
+        });
+
+        // ========================================
+        // COLOR PALETTE
+        // ========================================
+        const colors = {
+          primary: "#0066cc",
+          secondary: "#4a90e2",
+          success: "#10b981",
+          warning: "#f59e0b",
+          danger: "#ef4444",
+          dark: "#1f2937",
+          gray: "#6b7280",
+          lightGray: "#f3f4f6",
+          white: "#ffffff",
+        };
+
+        // ========================================
+        // HEADER - Cover Page
+        // ========================================
+
+        // Background rectangle
+        doc.rect(0, 0, 612, 250).fill(colors.primary);
+
+        // White title box
+        doc.rect(50, 80, 512, 120).fill(colors.white);
+
+        // Main Title
+        doc
+          .fillColor(colors.primary)
+          .fontSize(28)
+          .font("Helvetica-Bold")
+          .text("LAPORAN KUALITAS AIR", 50, 100, {
+            align: "center",
+            width: 512,
+          });
+
+        // Subtitle
+        doc
+          .fontSize(16)
+          .fillColor(colors.gray)
+          .font("Helvetica")
+          .text("Instalasi Pengolahan Air Limbah (IPAL)", 50, 140, {
+            align: "center",
+            width: 512,
+          });
+
+        // Institution
+        doc
+          .fontSize(14)
+          .fillColor(colors.secondary)
+          .font("Helvetica-Bold")
+          .text("Teknik Lingkungan - Universitas Diponegoro", 50, 170, {
+            align: "center",
+            width: 512,
+          });
+
+        // Info Box
+        doc.rect(50, 280, 512, 100).fill(colors.lightGray);
+
+        doc
+          .fontSize(10)
+          .fillColor(colors.dark)
+          .font("Helvetica-Bold")
+          .text("PERIODE PELAPORAN", 70, 295);
+
+        doc
+          .fontSize(12)
+          .fillColor(colors.primary)
+          .font("Helvetica")
+          .text(`${filters.start_date} sampai ${filters.end_date}`, 70, 315);
+
+        doc
+          .fontSize(10)
+          .fillColor(colors.dark)
+          .font("Helvetica-Bold")
+          .text("TANGGAL PEMBUATAN", 70, 345);
+
+        doc
+          .fontSize(12)
+          .fillColor(colors.gray)
+          .font("Helvetica")
+          .text(
+            new Date().toLocaleDateString("id-ID", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            }),
+            70,
+            365
+          );
+
+        // Decorative bottom bar
+        doc.rect(0, 750, 612, 92).fill(colors.primary);
+        doc
+          .fontSize(9)
+          .fillColor(colors.white)
+          .font("Helvetica")
+          .text("Water Quality Monitoring System", 0, 795, {
+            align: "center",
+            width: 612,
+          });
+
+        // ========================================
+        // PAGE 2 - Executive Summary
+        // ========================================
+        doc.addPage();
+
+        // Page Header
+        doc.rect(0, 0, 612, 60).fill(colors.primary);
+        doc
+          .fontSize(16)
+          .fillColor(colors.white)
+          .font("Helvetica-Bold")
+          .text("RINGKASAN EKSEKUTIF", 50, 22);
+
+        doc.moveDown(4);
+        let yPosition = 100;
+
+        // Summary Cards
+        const summaryCards = [
+          {
+            label: "Total Pembacaan",
+            value: summary.total_readings.toString(),
+            color: colors.primary,
+            bgColor: "#e3f2fd",
+          },
+          {
+            label: "Periode Mulai",
+            value: new Date(summary.period_start).toLocaleDateString("id-ID", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            }),
+            color: colors.success,
+            bgColor: "#d1fae5",
+          },
+          {
+            label: "Periode Selesai",
+            value: new Date(summary.period_end).toLocaleDateString("id-ID", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            }),
+            color: colors.secondary,
+            bgColor: "#dbeafe",
+          },
+        ];
+
+        summaryCards.forEach((card, index) => {
+          const xPos = 50 + index * 174;
+
+          // Card background
+          doc.roundedRect(xPos, yPosition, 160, 80, 8).fill(card.bgColor);
+
+          // Label
+          doc
+            .fontSize(10)
+            .fillColor(colors.gray)
+            .font("Helvetica")
+            .text(card.label, xPos + 15, yPosition + 20, { width: 130 });
+
+          // Value
+          doc
+            .fontSize(20)
+            .fillColor(card.color)
+            .font("Helvetica-Bold")
+            .text(card.value, xPos + 15, yPosition + 40, { width: 130 });
+        });
+
+        yPosition += 120;
+
+        // ========================================
+        // STATISTICS SECTION
+        // ========================================
+
+        doc
+          .fontSize(14)
+          .fillColor(colors.dark)
+          .font("Helvetica-Bold")
+          .text("STATISTIK PARAMETER", 50, yPosition);
+
+        // Decorative line
+        doc
+          .strokeColor(colors.primary)
+          .lineWidth(3)
+          .moveTo(50, yPosition + 25)
+          .lineTo(200, yPosition + 25)
+          .stroke();
+
+        yPosition += 50;
+
+        // Statistics Table
+        Object.entries(summary.parameters).forEach(([key, stats]) => {
+          if (typeof stats === "object" && stats !== null) {
+            // Check if need new page
+            if (yPosition > 680) {
+              doc.addPage();
+
+              // Page Header
+              doc.rect(0, 0, 612, 60).fill(colors.primary);
+              doc
+                .fontSize(16)
+                .fillColor(colors.white)
+                .font("Helvetica-Bold")
+                .text("STATISTIK PARAMETER (Lanjutan)", 50, 22);
+
+              yPosition = 100;
+            }
+
+            // Parameter box
+            doc.roundedRect(50, yPosition, 512, 100, 8).fill(colors.lightGray);
+
+            // Parameter name
+            doc
+              .fontSize(12)
+              .fillColor(colors.primary)
+              .font("Helvetica-Bold")
+              .text(key.toUpperCase().replace(/_/g, " "), 70, yPosition + 15);
+
+            // Stats grid
+            const statsData = [
+              { label: "Rata-rata", value: stats.avg, icon: "●" },
+              { label: "Minimum", value: stats.min, icon: "▼" },
+              { label: "Maximum", value: stats.max, icon: "▲" },
+              { label: "Jumlah Data", value: stats.count, icon: "■" },
+            ];
+
+            statsData.forEach((stat, index) => {
+              const xOffset = 70 + (index % 2) * 250;
+              const yOffset = yPosition + 45 + Math.floor(index / 2) * 25;
+
+              doc
+                .fontSize(8)
+                .fillColor(colors.gray)
+                .font("Helvetica")
+                .text(stat.label, xOffset, yOffset);
+
+              doc
+                .fontSize(11)
+                .fillColor(colors.dark)
+                .font("Helvetica-Bold")
+                .text(stat.value.toString(), xOffset + 80, yOffset);
+            });
+
+            yPosition += 120;
+          }
+        });
+
+        // Removal Efficiency Section
+        const removalStats = Object.entries(summary.parameters).filter(
+          ([key, value]) => typeof value === "string" && key.includes("removal")
+        );
+
+        if (removalStats.length > 0) {
+          if (yPosition > 650) {
+            doc.addPage();
+            doc.rect(0, 0, 612, 60).fill(colors.primary);
+            doc
+              .fontSize(16)
+              .fillColor(colors.white)
+              .font("Helvetica-Bold")
+              .text("EFISIENSI REMOVAL", 50, 22);
+            yPosition = 100;
+          } else {
+            yPosition += 20;
+            doc
+              .fontSize(14)
+              .fillColor(colors.dark)
+              .font("Helvetica-Bold")
+              .text("EFISIENSI REMOVAL", 50, yPosition);
+
+            doc
+              .strokeColor(colors.success)
+              .lineWidth(3)
+              .moveTo(50, yPosition + 25)
+              .lineTo(220, yPosition + 25)
+              .stroke();
+
+            yPosition += 50;
+          }
+
+          removalStats.forEach(([key, value]) => {
+            doc.roundedRect(50, yPosition, 512, 50, 8).fill("#d1fae5");
+
+            doc
+              .fontSize(11)
+              .fillColor(colors.dark)
+              .font("Helvetica-Bold")
+              .text(key.toUpperCase().replace(/_/g, " "), 70, yPosition + 12);
+
+            doc
+              .fontSize(16)
+              .fillColor(colors.success)
+              .font("Helvetica-Bold")
+              .text(value, 70, yPosition + 28);
+
+            yPosition += 65;
+          });
         }
-      });
 
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              margin: 40px;
-            }
-            h1 {
-              text-align: center;
-              color: #333;
-              margin-bottom: 5px;
-            }
-            h2 {
-              text-align: center;
-              color: #666;
-              font-size: 18px;
-              margin-top: 5px;
-            }
-            .info {
-              margin: 20px 0;
-              padding: 15px;
-              background-color: #f5f5f5;
-              border-radius: 5px;
-            }
-            .section {
-              margin: 30px 0;
-            }
-            .section h3 {
-              color: #333;
-              border-bottom: 2px solid #0066cc;
-              padding-bottom: 5px;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 15px;
-            }
-            th {
-              background-color: #0066cc;
-              color: white;
-              padding: 10px;
-              text-align: left;
-              font-size: 12px;
-            }
-            td {
-              padding: 8px;
-              border-bottom: 1px solid #ddd;
-              font-size: 11px;
-            }
-            tr:nth-child(even) {
-              background-color: #f9f9f9;
-            }
-            .footer {
-              text-align: center;
-              margin-top: 40px;
-              padding-top: 20px;
-              border-top: 1px solid #ddd;
-              font-size: 10px;
-              color: #666;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>LAPORAN KUALITAS AIR</h1>
-          <h2>IPAL Teknik Lingkungan UNDIP</h2>
-          
-          <div class="info">
-            <strong>Generated:</strong> ${new Date().toLocaleString(
-              "id-ID"
-            )}<br>
-            <strong>Period:</strong> ${filters.start_date} to ${
-        filters.end_date
-      }<br>
-            <strong>Total Readings:</strong> ${summary.total_readings}
-          </div>
+        // ========================================
+        // PAGE 3+ - Data Table
+        // ========================================
+        doc.addPage();
 
-          <div class="section">
-            <h3>Summary Statistics</h3>
-            ${parameterStats}
-          </div>
+        // Page Header
+        doc.rect(0, 0, 612, 60).fill(colors.primary);
+        doc
+          .fontSize(16)
+          .fillColor(colors.white)
+          .font("Helvetica-Bold")
+          .text("DATA PEMBACAAN TERAKHIR", 50, 22);
 
-          <div class="section">
-            <h3>Recent Readings (Last 20)</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>Timestamp</th>
-                  <th>Inlet pH</th>
-                  <th>Inlet TDS</th>
-                  <th>Outlet pH</th>
-                  <th>Outlet TDS</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${tableRows}
-              </tbody>
-            </table>
-          </div>
+        yPosition = 100;
 
-          <div class="footer">
-            Generated by Water Quality Monitoring System - IPAL UNDIP
-          </div>
-        </body>
-        </html>
-      `;
+        // Table Header
+        const tableTop = yPosition;
+        const colWidths = [130, 60, 65, 60, 65];
+        const colX = [50, 180, 240, 305, 365];
+        const headers = [
+          "Waktu",
+          "Inlet pH",
+          "Inlet TDS",
+          "Outlet pH",
+          "Outlet TDS",
+        ];
 
-      // Generate PDF from HTML
-      const file = { content: htmlContent };
-      const options = {
-        format: "A4",
-        margin: { top: "20mm", right: "20mm", bottom: "20mm", left: "20mm" },
-      };
+        // Header background
+        doc.rect(50, tableTop, 480, 25).fill(colors.primary);
 
-      const pdfBuffer = await pdf.generatePdf(file, options);
-      return pdfBuffer;
-    } catch (error) {
-      console.error("❌ Error generating PDF:", error);
-      throw error;
-    }
+        // Header text
+        doc.fontSize(9).font("Helvetica-Bold").fillColor(colors.white);
+        headers.forEach((header, i) => {
+          doc.text(header, colX[i], tableTop + 8, {
+            width: colWidths[i],
+            align: i === 0 ? "left" : "center",
+          });
+        });
+
+        // Table rows
+        yPosition = tableTop + 30;
+        const recentData = data.slice(0, 25);
+        let rowColor = true;
+
+        doc.font("Helvetica").fontSize(8);
+
+        recentData.forEach((row, index) => {
+          // Check if need new page
+          if (yPosition > 750) {
+            doc.addPage();
+
+            // Repeat header
+            doc.rect(0, 0, 612, 60).fill(colors.primary);
+            doc
+              .fontSize(16)
+              .fillColor(colors.white)
+              .font("Helvetica-Bold")
+              .text("DATA PEMBACAAN (Lanjutan)", 50, 22);
+
+            yPosition = 100;
+
+            // Repeat table header
+            doc.rect(50, yPosition, 480, 25).fill(colors.primary);
+            doc.fontSize(9).font("Helvetica-Bold").fillColor(colors.white);
+            headers.forEach((header, i) => {
+              doc.text(header, colX[i], yPosition + 8, {
+                width: colWidths[i],
+                align: i === 0 ? "left" : "center",
+              });
+            });
+
+            yPosition += 30;
+            rowColor = true;
+          }
+
+          // Alternate row colors
+          if (rowColor) {
+            doc.rect(50, yPosition - 3, 480, 20).fill(colors.lightGray);
+          }
+          rowColor = !rowColor;
+
+          doc.fillColor(colors.dark);
+
+          const timestamp = row.timestamp
+            ? new Date(row.timestamp).toLocaleString("id-ID", {
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "N/A";
+
+          doc.text(timestamp, colX[0], yPosition, { width: colWidths[0] });
+          doc.text(
+            row.inlet_ph != null ? row.inlet_ph.toFixed(2) : "-",
+            colX[1],
+            yPosition,
+            { width: colWidths[1], align: "center" }
+          );
+          doc.text(
+            row.inlet_tds != null ? row.inlet_tds.toFixed(1) : "-",
+            colX[2],
+            yPosition,
+            { width: colWidths[2], align: "center" }
+          );
+          doc.text(
+            row.outlet_ph != null ? row.outlet_ph.toFixed(2) : "-",
+            colX[3],
+            yPosition,
+            { width: colWidths[3], align: "center" }
+          );
+          doc.text(
+            row.outlet_tds != null ? row.outlet_tds.toFixed(1) : "-",
+            colX[4],
+            yPosition,
+            { width: colWidths[4], align: "center" }
+          );
+
+          yPosition += 20;
+        });
+
+        // ========================================
+        // ADD PAGE NUMBERS
+        // ========================================
+        const pages = doc.bufferedPageRange();
+        for (let i = 0; i < pages.count; i++) {
+          doc.switchToPage(i);
+
+          // Footer
+          doc
+            .fontSize(8)
+            .fillColor(colors.gray)
+            .font("Helvetica")
+            .text(
+              `Halaman ${i + 1} dari ${pages.count}`,
+              0,
+              doc.page.height - 50,
+              { align: "center", width: doc.page.width }
+            );
+
+          doc
+            .fontSize(7)
+            .text(
+              "Water Quality Monitoring System - IPAL UNDIP",
+              0,
+              doc.page.height - 35,
+              { align: "center", width: doc.page.width }
+            );
+        }
+
+        console.log("✅ PDF content written, finalizing...");
+
+        // Finalize PDF
+        doc.end();
+
+        console.log("✅ doc.end() called");
+      } catch (error) {
+        console.error("❌ Error in PDF generation:", error);
+        console.error("Stack:", error.stack);
+        reject(error);
+      }
+    });
   },
 };
 
 module.exports = reportService;
+
+console.log("📦 reportService (v4 - PDFKit) loaded");

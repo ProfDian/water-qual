@@ -75,13 +75,19 @@ const notificationRoutes = require("./routes/notificationRoutes");
 console.log("notificationRoutes type:", typeof notificationRoutes);
 app.use("/api/notifications", notificationRoutes);
 
-// ========================================
-// 6. REPORT ROUTES (NEW - ADD THIS!)
-// ========================================
+// 6. Report routes
 console.log("Loading reportRoutes...");
 const reportRoutes = require("./routes/reportRoutes");
 console.log("reportRoutes type:", typeof reportRoutes);
 app.use("/api/reports", reportRoutes);
+
+// ========================================
+// 7. WATER QUALITY ROUTES (NEW - BUFFER SYSTEM!)
+// ========================================
+console.log("Loading waterQualityRoutes...");
+const waterQualityRoutes = require("./routes/waterQualityRoutes");
+console.log("waterQualityRoutes type:", typeof waterQualityRoutes);
+app.use("/api/water-quality", waterQualityRoutes);
 
 // Admin test
 app.get("/admin/ping", requireAuth, requireAdmin, (req, res) => {
@@ -112,9 +118,14 @@ app.use((err, req, res, next) => {
 app.listen(port, () => {
   console.log("========================================");
   console.log(`🚀 Server running at http://localhost:${port}`);
-  console.log("========================================\n");
+  console.log("========================================");
+  console.log("\n📍 Available endpoints:");
+  console.log("   - POST   /api/water-quality/submit          (ESP32)");
+  console.log("   - GET    /api/water-quality/health          (Health check)");
+  console.log("   - GET    /api/water-quality/readings        (Auth required)");
+  console.log("   - GET    /api/water-quality/buffer-status   (Auth required)");
+  console.log("   - DELETE /api/water-quality/cleanup-buffer  (Admin only)");
+  console.log("\n");
 });
 
 module.exports = app;
-
-// ========================================
