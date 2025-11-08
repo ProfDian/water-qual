@@ -363,57 +363,64 @@ async function createAlertsForViolations(readingId, ipalId, violations) {
   }
 }
 
-/**
- * ========================================
- * NOTIFICATION SENDING
- * ========================================
- */
-
-/**
- * Send notifications for critical alerts
- */
 async function sendNotificationsForAlerts(alerts) {
   try {
-    // Check if notificationService exists and has required functions
+    // Check if notificationService exists
     if (!notificationService) {
       console.warn("⚠️ notificationService not available");
       return;
     }
 
-    for (const alert of alerts) {
-      try {
-        // Prepare notification data
-        const notificationData = {
-          title: `Alert: ${alert.parameter.toUpperCase()} ${alert.severity.toUpperCase()}`,
-          message: alert.message,
-          severity: alert.severity,
-          ipal_id: alert.ipal_id,
-          reading_id: alert.reading_id,
-          alert_id: alert.alert_id,
-        };
-
-        // Send email if available
-        if (notificationService.sendEmailAlert) {
-          await notificationService.sendEmailAlert(notificationData);
-          console.log(`   Email sent for alert: ${alert.alert_id}`);
-        }
-
-        // Send FCM if available
-        if (notificationService.sendFCMNotification) {
-          await notificationService.sendFCMNotification(notificationData);
-          console.log(`   FCM sent for alert: ${alert.alert_id}`);
-        }
-      } catch (notifError) {
-        console.error(
-          `⚠️ Failed to send notification for ${alert.alert_id}:`,
-          notifError.message
-        );
-        // Continue with other notifications
-      }
+    if (!alerts || alerts.length === 0) {
+      console.log("ℹ️  No alerts to send");
+      return;
     }
+
+    console.log(
+      `📤 Preparing to send notifications for ${alerts.length} alert(s)...`
+    );
+
+    // Filter critical/high alerts only (optional)
+    // Uncomment line below to only send critical/high severity alerts
+    // const criticalAlerts = alerts.filter(a => a.severity === 'critical' || a.severity === 'high');
+
+    // OR send all alerts regardless of severity:
+    const alertsToSend = alerts;
+
+    if (alertsToSend.length === 0) {
+      console.log("ℹ️  No critical/high alerts to send");
+      return;
+    }
+
+    console.log(
+      `📧 Sending notifications for ${alertsToSend.length} alert(s)...`
+    );
+
+    // ⭐ CALL NEW ORCHESTRATOR
+    // This will:
+    // 1. Get admin/manager emails from Firestore
+    // 2. Send 1 email with ALL violations
+    // 3. Send FCM (if tokens available)
+    const result = await notificationService.sendAlerts(alertsToSend);
+
+    if (result.success) {
+      console.log("✅ Notifications sent successfully");
+      console.log(`   Email: ${result.results?.email?.success ? "✅" : "❌"}`);
+      console.log(
+        `   FCM: ${result.results?.fcm?.success ? "✅" : "⏭️ Skipped"}`
+      );
+    } else {
+      console.log("⚠️  Notification sending had issues:", result.message);
+    }
+
+    return result;
   } catch (error) {
     console.error("❌ Error sending notifications:", error);
-    // Don't throw - notifications failing shouldn't break the flow
+    // Don't throw - notifications failing shouldn't break the main flow
+    return {
+      success: false,
+      error: error.message,
+    };
   }
 }
 
