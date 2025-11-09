@@ -20,7 +20,7 @@ exports.getAlerts = async (req, res) => {
       severity,
       parameter,
       location,
-      limit = 50,
+      limit = 200,
       start_after,
     } = req.query;
 

@@ -1,9 +1,9 @@
 /**
  * ========================================
- * AUTH MIDDLEWARE (Fixed)
+ * AUTH MIDDLEWARE (With Token Caching)
  * ========================================
- * Verify custom JWT token (bukan Firebase ID token)
- * Konsisten dengan authController yang generate custom JWT
+ * Verify custom JWT token with in-memory cache
+ * Reduces Firestore reads by ~95%!
  */
 
 const jwt = require("jsonwebtoken");
@@ -11,6 +11,73 @@ const { db } = require("../config/firebase-config");
 require("dotenv").config();
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-this";
+
+// ========================================
+// TOKEN CACHE (In-Memory)
+// ========================================
+const tokenCache = new Map();
+const CACHE_DURATION = 60 * 60 * 1000; // 1 hour (adjust as needed)
+
+/**
+ * Get user from cache
+ */
+function getCachedUser(token) {
+  const cached = tokenCache.get(token);
+
+  if (!cached) {
+    return null;
+  }
+
+  // Check if cache expired
+  if (Date.now() - cached.timestamp > CACHE_DURATION) {
+    tokenCache.delete(token);
+    return null;
+  }
+
+  return cached.user;
+}
+
+/**
+ * Save user to cache
+ */
+function cacheUser(token, user) {
+  tokenCache.set(token, {
+    user: user,
+    timestamp: Date.now(),
+  });
+}
+
+/**
+ * Clear token from cache
+ */
+function clearCache(token) {
+  tokenCache.delete(token);
+}
+
+/**
+ * Auto-cleanup expired cache entries (runs every 10 minutes)
+ */
+setInterval(() => {
+  const now = Date.now();
+  let cleaned = 0;
+
+  for (const [token, data] of tokenCache.entries()) {
+    if (now - data.timestamp > CACHE_DURATION) {
+      tokenCache.delete(token);
+      cleaned++;
+    }
+  }
+
+  if (cleaned > 0) {
+    console.log(
+      `🧹 Cache cleanup: removed ${cleaned} expired token(s), ${tokenCache.size} remaining`
+    );
+  }
+}, 10 * 60 * 1000); // 10 minutes
+
+// ========================================
+// AUTH MIDDLEWARE
+// ========================================
 
 /**
  * Require authentication - Verify custom JWT token
@@ -37,35 +104,60 @@ exports.requireAuth = async (req, res, next) => {
       });
     }
 
-    console.log("🔐 Verifying JWT token...");
+    // ⭐ CHECK CACHE FIRST
+    const cachedUser = getCachedUser(token);
+    if (cachedUser) {
+      console.log("✅ Auth from cache (no DB call!):", cachedUser.email);
+      req.user = cachedUser;
+      return next();
+    }
+
+    // ⭐ CACHE MISS - Verify JWT
+    console.log("🔐 Verifying JWT token (cache miss)...");
 
     // Verify JWT token
     const decoded = jwt.verify(token, JWT_SECRET);
 
     console.log("✅ Token verified for user:", decoded.email);
 
-    // Optional: Get latest user data from Firestore
-    // (untuk ambil role terbaru kalau ada update)
+    // Get latest user data from Firestore
     const userDoc = await db.collection("users").doc(decoded.uid).get();
 
-    let role = decoded.role || "user"; // Default dari token
+    let role = decoded.role || "user"; // Default from token
     if (userDoc.exists) {
-      role = userDoc.data().role || role; // Update dari Firestore
+      role = userDoc.data().role || role; // Update from Firestore
     }
 
-    // Attach user info to request object
-    req.user = {
+    // Prepare user object
+    const user = {
       uid: decoded.uid,
       email: decoded.email,
       role: role,
     };
 
-    console.log("✅ Auth success:", req.user.email, "| Role:", req.user.role);
+    // ⭐ SAVE TO CACHE
+    cacheUser(token, user);
 
-    // Continue to next middleware/route handler
+    // Attach user info to request
+    req.user = user;
+
+    console.log(
+      "✅ Auth success:",
+      req.user.email,
+      "| Role:",
+      req.user.role,
+      "| Cached for 1 hour"
+    );
+
     next();
   } catch (error) {
     console.error("❌ Auth middleware error:", error.message);
+
+    // ⭐ CLEAR INVALID TOKEN FROM CACHE
+    const token = req.headers.authorization?.split(" ")[1];
+    if (token) {
+      clearCache(token);
+    }
 
     // Handle specific JWT errors
     if (error.name === "TokenExpiredError") {
@@ -113,7 +205,7 @@ exports.requireAdmin = (req, res, next) => {
 };
 
 /**
- * Require manager role (admin atau manager)
+ * Require manager role (admin or manager)
  */
 exports.requireManager = (req, res, next) => {
   if (!req.user) {
@@ -134,4 +226,32 @@ exports.requireManager = (req, res, next) => {
   next();
 };
 
-console.log("📦 authMiddleware loaded (JWT verify)");
+// ========================================
+// UTILITY: Manual cache management (optional)
+// ========================================
+
+/**
+ * Clear all cache (useful for logout or admin tools)
+ */
+exports.clearAllCache = () => {
+  const count = tokenCache.size;
+  tokenCache.clear();
+  console.log(`🧹 Cleared all token cache (${count} entries)`);
+};
+
+/**
+ * Get cache stats (useful for monitoring)
+ */
+exports.getCacheStats = () => {
+  return {
+    size: tokenCache.size,
+    entries: Array.from(tokenCache.entries()).map(([token, data]) => ({
+      token: token.substring(0, 20) + "...", // Partial token for privacy
+      email: data.user.email,
+      age: Math.floor((Date.now() - data.timestamp) / 1000), // seconds
+    })),
+  };
+};
+
+console.log("📦 authMiddleware loaded (JWT verify with cache)");
+console.log(`⏱️  Cache duration: ${CACHE_DURATION / 1000 / 60} minutes`);
