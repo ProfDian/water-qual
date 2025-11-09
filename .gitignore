@@ -1,7 +1,8 @@
 ﻿# Credentials & Secrets
 serviceAccount.json
-serviceAccount2.json
+serviceAccounts2.json
 **/serviceAccounts.json
+**/serviceAccounts2.json
 firebase-adminsdk-*.json
 .env
 .env.*
