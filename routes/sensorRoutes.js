@@ -20,12 +20,6 @@ const {
 // ========================================
 
 /**
- * POST /api/sensors/readings
- * Terima data dari ESP32 (NO AUTH untuk device)
- */
-router.post("/readings", sensorController.createReading);
-
-/**
  * GET /api/sensors/readings
  * Get all readings with filters (AUTH required)
  */
@@ -64,21 +58,6 @@ router.get("/", requireAuth, sensorController.getAllSensors);
 router.get("/:id", requireAuth, sensorController.getSensorById);
 
 /**
- * POST /api/sensors
- * Add new sensor (Manager/Admin only)
- *
- * Body:
- * {
- *   "ipal_id": 1,
- *   "sensor_type": "ph",
- *   "sensor_location": "inlet",
- *   "sensor_description": "Sensor pH inlet IPAL utama",
- *   "status": "active"
- * }
- */
-router.post("/", requireAuth, requireManager, sensorController.addSensor);
-
-/**
  * PUT /api/sensors/:id
  * Update sensor (Manager/Admin only)
  *
@@ -91,12 +70,6 @@ router.post("/", requireAuth, requireManager, sensorController.addSensor);
  * }
  */
 router.put("/:id", requireAuth, requireManager, sensorController.updateSensor);
-
-/**
- * DELETE /api/sensors/:id
- * Delete sensor (Admin only)
- */
-router.delete("/:id", requireAuth, requireAdmin, sensorController.deleteSensor);
 
 /**
  * GET /api/sensors/:id/status
