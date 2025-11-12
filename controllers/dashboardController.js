@@ -461,17 +461,21 @@ exports.getReadingsForChart = async (req, res) => {
         id: doc.id,
         ipal_id: data.ipal_id,
 
-        // Timestamps (multiple formats untuk flexibility)
+        // Timestamps (ISO format for proper parsing)
         timestamp: timestamp.toISOString(),
-        date: timestamp.toLocaleDateString("id-ID", {
+        // Unix timestamp for numeric operations
+        unix_timestamp: timestamp.getTime(),
+        // Formatted strings for display only (not for parsing)
+        date_display: timestamp.toLocaleDateString("id-ID", {
           day: "2-digit",
           month: "short",
-        }), // "10 Nov"
-        time: timestamp.toLocaleTimeString("id-ID", {
+          year: "numeric",
+        }), // "10 Nov 2025" - for display only
+        time_display: timestamp.toLocaleTimeString("id-ID", {
           hour: "2-digit",
           minute: "2-digit",
-        }), // "07:29"
-        datetime: timestamp.toLocaleString("id-ID"), // "10/11/2025 07:29:20"
+        }), // "07:29" - for display only
+        datetime_display: timestamp.toLocaleString("id-ID"), // "10/11/2025 07:29:20" - for display only
 
         // Inlet data (prefix untuk clarity di chart)
         inlet_ph: data.inlet?.ph || null,

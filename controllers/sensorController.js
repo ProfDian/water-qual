@@ -17,7 +17,21 @@ const { admin, db } = require("../config/firebase-config");
  */
 exports.getReadings = async (req, res) => {
   try {
-    const { ipal_id, limit = 50, start_date, end_date } = req.query;
+    const {
+      ipal_id,
+      limit = 50,
+      order = "desc",
+      start_date,
+      end_date,
+    } = req.query;
+
+    console.log("📊 getReadings called with:", {
+      ipal_id,
+      limit,
+      order,
+      start_date,
+      end_date,
+    });
 
     let query = db.collection("water_quality_readings");
 
@@ -39,7 +53,11 @@ exports.getReadings = async (req, res) => {
       query = query.where("timestamp", "<=", endTimestamp);
     }
 
-    query = query.orderBy("timestamp", "desc").limit(parseInt(limit));
+    // ✅ Use order parameter from query string (asc or desc)
+    const sortOrder = order.toLowerCase() === "asc" ? "asc" : "desc";
+    query = query.orderBy("timestamp", sortOrder).limit(parseInt(limit));
+
+    console.log(`   Sorting by timestamp: ${sortOrder}`);
 
     const snapshot = await query.get();
 
@@ -51,6 +69,10 @@ exports.getReadings = async (req, res) => {
         timestamp: doc.data().timestamp?.toDate().toISOString(),
       });
     });
+
+    console.log(
+      `✅ Returning ${readings.length} readings (${sortOrder} order)`
+    );
 
     return res.status(200).json({
       success: true,
