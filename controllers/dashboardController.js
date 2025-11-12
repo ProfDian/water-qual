@@ -355,5 +355,215 @@ async function getIPALInfo(ipalId) {
   }
 }
 
+/**
+ * GET READINGS FOR CHARTS (optimized untuk Recharts)
+ * Endpoint: GET /api/dashboard/readings/:ipal_id
+ * Query params:
+ *   - period: today|yesterday|week|custom (default: today)
+ *   - start: ISO date string (for custom period)
+ *   - end: ISO date string (for custom period)
+ *   - limit: number (default: 100, max: 500)
+ */
+exports.getReadingsForChart = async (req, res) => {
+  try {
+    const { ipal_id } = req.params;
+    const { period = "today", start, end, limit = 100 } = req.query;
+
+    console.log(
+      `📊 Fetching readings for chart - IPAL: ${ipal_id}, Period: ${period}`
+    );
+
+    // Calculate date range based on period
+    let startDate, endDate;
+
+    switch (period) {
+      case "today":
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+        break;
+
+      case "yesterday":
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setDate(endDate.getDate() - 1);
+        endDate.setHours(23, 59, 59, 999);
+        break;
+
+      case "week":
+      case "7days":
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date();
+        endDate.setHours(23, 59, 59, 999);
+        break;
+
+      case "custom":
+        if (!start || !end) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Custom period requires 'start' and 'end' query parameters",
+          });
+        }
+        startDate = new Date(start);
+        endDate = new Date(end);
+        break;
+
+      default:
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid period. Use: today, yesterday, week, or custom (with start/end)",
+        });
+    }
+
+    console.log(
+      `   Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`
+    );
+
+    // Query Firestore
+    const snapshot = await db
+      .collection("water_quality_readings")
+      .where("ipal_id", "==", parseInt(ipal_id))
+      .where("timestamp", ">=", admin.firestore.Timestamp.fromDate(startDate))
+      .where("timestamp", "<=", admin.firestore.Timestamp.fromDate(endDate))
+      .orderBy("timestamp", "asc") // ASC untuk chart (kiri ke kanan)
+      .limit(parseInt(limit))
+      .get();
+
+    if (snapshot.empty) {
+      return res.status(200).json({
+        success: true,
+        message: "No readings found for the specified period",
+        data: [],
+        period: period,
+        date_range: {
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+        },
+      });
+    }
+
+    // Transform data untuk Recharts
+    const readings = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      const timestamp = data.timestamp?.toDate
+        ? data.timestamp.toDate()
+        : new Date(data.timestamp);
+
+      return {
+        // IDs
+        id: doc.id,
+        ipal_id: data.ipal_id,
+
+        // Timestamps (multiple formats untuk flexibility)
+        timestamp: timestamp.toISOString(),
+        date: timestamp.toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "short",
+        }), // "10 Nov"
+        time: timestamp.toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }), // "07:29"
+        datetime: timestamp.toLocaleString("id-ID"), // "10/11/2025 07:29:20"
+
+        // Inlet data (prefix untuk clarity di chart)
+        inlet_ph: data.inlet?.ph || null,
+        inlet_tds: data.inlet?.tds || null,
+        inlet_turbidity: data.inlet?.turbidity || null,
+        inlet_temperature: data.inlet?.temperature || null,
+
+        // Outlet data
+        outlet_ph: data.outlet?.ph || null,
+        outlet_tds: data.outlet?.tds || null,
+        outlet_turbidity: data.outlet?.turbidity || null,
+        outlet_temperature: data.outlet?.temperature || null,
+
+        // ⭐ FUZZY ANALYSIS (PENTING!)
+        quality_score: data.fuzzy_analysis?.quality_score || 0,
+        status: data.fuzzy_analysis?.status || "unknown",
+        alert_count: data.fuzzy_analysis?.alert_count || 0,
+        has_violations: data.fuzzy_analysis?.violations?.length > 0 || false,
+
+        // Additional fuzzy data (optional, bisa dipakai untuk tooltip)
+        violations: data.fuzzy_analysis?.violations || [],
+        recommendations: data.fuzzy_analysis?.recommendations || [],
+        analysis_method: data.fuzzy_analysis?.analysis_method || null,
+      };
+    });
+
+    // Calculate summary statistics
+    const summary = calculateReadingsSummary(readings);
+
+    console.log(`✅ Retrieved ${readings.length} readings for chart`);
+
+    return res.status(200).json({
+      success: true,
+      count: readings.length,
+      period: period,
+      date_range: {
+        start: startDate.toISOString(),
+        end: endDate.toISOString(),
+      },
+      summary: summary,
+      data: readings,
+    });
+  } catch (error) {
+    console.error("💥 Error fetching readings for chart:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch readings for chart",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Helper: Calculate summary statistics dari readings
+ */
+function calculateReadingsSummary(readings) {
+  if (readings.length === 0) {
+    return null;
+  }
+
+  // Calculate averages
+  const avgQualityScore =
+    readings.reduce((sum, r) => sum + (r.quality_score || 0), 0) /
+    readings.length;
+
+  // Count by status
+  const statusCounts = readings.reduce((acc, r) => {
+    acc[r.status] = (acc[r.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Total violations
+  const totalViolations = readings.reduce(
+    (sum, r) => sum + (r.alert_count || 0),
+    0
+  );
+
+  // Latest reading
+  const latest = readings[readings.length - 1]; // Last item (newest karena ASC)
+
+  return {
+    total_readings: readings.length,
+    average_quality_score: Math.round(avgQualityScore),
+    status_distribution: statusCounts,
+    total_violations: totalViolations,
+    latest_reading: {
+      timestamp: latest.timestamp,
+      quality_score: latest.quality_score,
+      status: latest.status,
+    },
+  };
+}
+
 // Debug
 console.log("📦 dashboardController exports:", Object.keys(module.exports));

@@ -271,7 +271,7 @@ const reportService = {
    */
   /**
    * Generate PDF file using PDFKit (returns BUFFER)
-   * Professional & Beautiful Design
+   * 🔥 COMPACT VERSION - 1-2 Pages Maximum
    */
   generatePDF: async (data, summary, filters) => {
     return new Promise((resolve, reject) => {
@@ -279,11 +279,11 @@ const reportService = {
         console.log("🔧 Starting PDF generation...");
         console.log(`📊 Data rows: ${data.length}`);
 
-        // Create PDF document
+        // Create PDF document - COMPACT margins
         const doc = new PDFDocument({
           size: "A4",
-          margins: { top: 40, bottom: 60, left: 50, right: 50 },
-          bufferPages: true, // Enable page numbering
+          margins: { top: 30, bottom: 40, left: 40, right: 40 },
+          bufferPages: true,
           info: {
             Title: "Water Quality Report",
             Author: "IPAL Monitoring System - UNDIP",
@@ -326,309 +326,268 @@ const reportService = {
         };
 
         // ========================================
-        // HEADER - Cover Page
+        // 🔥 COMPACT HEADER - All in one page
         // ========================================
+        let yPosition = 30;
 
-        // Background rectangle
-        doc.rect(0, 0, 612, 250).fill(colors.primary);
+        // Thin header bar
+        doc.rect(0, 0, 612, 80).fill(colors.primary);
 
-        // White title box
-        doc.rect(50, 80, 512, 120).fill(colors.white);
-
-        // Main Title
+        // Title
         doc
-          .fillColor(colors.primary)
-          .fontSize(28)
+          .fillColor(colors.white)
+          .fontSize(20)
           .font("Helvetica-Bold")
-          .text("LAPORAN KUALITAS AIR", 50, 100, {
-            align: "center",
-            width: 512,
-          });
+          .text("LAPORAN KUALITAS AIR", 40, 20);
 
         // Subtitle
         doc
-          .fontSize(16)
+          .fontSize(11)
+          .font("Helvetica")
+          .text("IPAL Teknik Lingkungan - Universitas Diponegoro", 40, 48);
+
+        yPosition = 100;
+
+        // ========================================
+        // COMPACT INFO BOX (3 columns in 1 row)
+        // ========================================
+        doc.rect(40, yPosition, 532, 60).fill(colors.lightGray);
+
+        // Column 1: Period
+        doc
+          .fontSize(8)
           .fillColor(colors.gray)
           .font("Helvetica")
-          .text("Instalasi Pengolahan Air Limbah (IPAL)", 50, 140, {
-            align: "center",
-            width: 512,
-          });
-
-        // Institution
-        doc
-          .fontSize(14)
-          .fillColor(colors.secondary)
-          .font("Helvetica-Bold")
-          .text("Teknik Lingkungan - Universitas Diponegoro", 50, 170, {
-            align: "center",
-            width: 512,
-          });
-
-        // Info Box
-        doc.rect(50, 280, 512, 100).fill(colors.lightGray);
+          .text("PERIODE", 50, yPosition + 12);
 
         doc
           .fontSize(10)
           .fillColor(colors.dark)
           .font("Helvetica-Bold")
-          .text("PERIODE PELAPORAN", 70, 295);
-
-        doc
-          .fontSize(12)
-          .fillColor(colors.primary)
-          .font("Helvetica")
-          .text(`${filters.start_date} sampai ${filters.end_date}`, 70, 315);
-
-        doc
-          .fontSize(10)
-          .fillColor(colors.dark)
-          .font("Helvetica-Bold")
-          .text("TANGGAL PEMBUATAN", 70, 345);
-
-        doc
-          .fontSize(12)
-          .fillColor(colors.gray)
-          .font("Helvetica")
           .text(
-            new Date().toLocaleDateString("id-ID", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            }),
-            70,
-            365
+            `${filters.start_date}\nsampai\n${filters.end_date}`,
+            50,
+            yPosition + 25,
+            { width: 150, lineGap: 1 }
           );
 
-        // Decorative bottom bar
-        doc.rect(0, 750, 612, 92).fill(colors.primary);
+        // Column 2: Total Readings
         doc
-          .fontSize(9)
-          .fillColor(colors.white)
+          .fontSize(8)
+          .fillColor(colors.gray)
           .font("Helvetica")
-          .text("Water Quality Monitoring System", 0, 795, {
-            align: "center",
-            width: 612,
-          });
+          .text("TOTAL PEMBACAAN", 220, yPosition + 12);
 
-        // ========================================
-        // PAGE 2 - Executive Summary
-        // ========================================
-        doc.addPage();
-
-        // Page Header
-        doc.rect(0, 0, 612, 60).fill(colors.primary);
         doc
-          .fontSize(16)
-          .fillColor(colors.white)
+          .fontSize(18)
+          .fillColor(colors.primary)
           .font("Helvetica-Bold")
-          .text("RINGKASAN EKSEKUTIF", 50, 22);
+          .text(summary.total_readings.toString(), 220, yPosition + 28);
 
-        doc.moveDown(4);
-        let yPosition = 100;
-
-        // Summary Cards
-        const summaryCards = [
-          {
-            label: "Total Pembacaan",
-            value: summary.total_readings.toString(),
-            color: colors.primary,
-            bgColor: "#e3f2fd",
-          },
-          {
-            label: "Periode Mulai",
-            value: new Date(summary.period_start).toLocaleDateString("id-ID", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            }),
-            color: colors.success,
-            bgColor: "#d1fae5",
-          },
-          {
-            label: "Periode Selesai",
-            value: new Date(summary.period_end).toLocaleDateString("id-ID", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            }),
-            color: colors.secondary,
-            bgColor: "#dbeafe",
-          },
-        ];
-
-        summaryCards.forEach((card, index) => {
-          const xPos = 50 + index * 174;
-
-          // Card background
-          doc.roundedRect(xPos, yPosition, 160, 80, 8).fill(card.bgColor);
-
-          // Label
-          doc
-            .fontSize(10)
-            .fillColor(colors.gray)
-            .font("Helvetica")
-            .text(card.label, xPos + 15, yPosition + 20, { width: 130 });
-
-          // Value
-          doc
-            .fontSize(20)
-            .fillColor(card.color)
-            .font("Helvetica-Bold")
-            .text(card.value, xPos + 15, yPosition + 40, { width: 130 });
-        });
-
-        yPosition += 120;
-
-        // ========================================
-        // STATISTICS SECTION
-        // ========================================
+        // Column 3: Report Date
+        doc
+          .fontSize(8)
+          .fillColor(colors.gray)
+          .font("Helvetica")
+          .text("DIBUAT TANGGAL", 390, yPosition + 12);
 
         doc
-          .fontSize(14)
+          .fontSize(10)
           .fillColor(colors.dark)
           .font("Helvetica-Bold")
-          .text("STATISTIK PARAMETER", 50, yPosition);
+          .text(
+            new Date().toLocaleDateString("id-ID", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            }),
+            390,
+            yPosition + 28
+          );
 
-        // Decorative line
+        yPosition += 80;
+
+        yPosition += 10;
+
+        // ========================================
+        // 🔥 COMPACT STATISTICS TABLE
+        // ========================================
+
+        doc
+          .fontSize(12)
+          .fillColor(colors.dark)
+          .font("Helvetica-Bold")
+          .text("STATISTIK PARAMETER", 40, yPosition);
+
         doc
           .strokeColor(colors.primary)
-          .lineWidth(3)
-          .moveTo(50, yPosition + 25)
-          .lineTo(200, yPosition + 25)
+          .lineWidth(2)
+          .moveTo(40, yPosition + 18)
+          .lineTo(160, yPosition + 18)
           .stroke();
 
-        yPosition += 50;
+        yPosition += 30;
 
-        // Statistics Table
+        // Compact table header
+        doc.rect(40, yPosition, 532, 20).fill(colors.primary);
+
+        const statsHeaders = ["Parameter", "Avg", "Min", "Max", "Count"];
+        const statsColX = [45, 230, 310, 390, 480];
+        const statsColW = [180, 70, 70, 80, 50];
+
+        doc.fontSize(8).font("Helvetica-Bold").fillColor(colors.white);
+        statsHeaders.forEach((header, i) => {
+          doc.text(header, statsColX[i], yPosition + 6, {
+            width: statsColW[i],
+            align: i === 0 ? "left" : "center",
+          });
+        });
+
+        yPosition += 20;
+
+        // Compact statistics rows
+        let rowAlt = true;
         Object.entries(summary.parameters).forEach(([key, stats]) => {
           if (typeof stats === "object" && stats !== null) {
-            // Check if need new page
-            if (yPosition > 680) {
+            // Check page break
+            if (yPosition > 750) {
               doc.addPage();
+              yPosition = 60;
 
-              // Page Header
-              doc.rect(0, 0, 612, 60).fill(colors.primary);
-              doc
-                .fontSize(16)
-                .fillColor(colors.white)
-                .font("Helvetica-Bold")
-                .text("STATISTIK PARAMETER (Lanjutan)", 50, 22);
-
-              yPosition = 100;
+              // Repeat header
+              doc.rect(40, yPosition, 532, 20).fill(colors.primary);
+              doc.fontSize(8).font("Helvetica-Bold").fillColor(colors.white);
+              statsHeaders.forEach((header, i) => {
+                doc.text(header, statsColX[i], yPosition + 6, {
+                  width: statsColW[i],
+                  align: i === 0 ? "left" : "center",
+                });
+              });
+              yPosition += 20;
+              rowAlt = true;
             }
 
-            // Parameter box
-            doc.roundedRect(50, yPosition, 512, 100, 8).fill(colors.lightGray);
+            if (rowAlt) {
+              doc.rect(40, yPosition, 532, 18).fill(colors.lightGray);
+            }
+            rowAlt = !rowAlt;
 
-            // Parameter name
-            doc
-              .fontSize(12)
-              .fillColor(colors.primary)
-              .font("Helvetica-Bold")
-              .text(key.toUpperCase().replace(/_/g, " "), 70, yPosition + 15);
+            doc.fontSize(8).font("Helvetica").fillColor(colors.dark);
 
-            // Stats grid
-            const statsData = [
-              { label: "Rata-rata", value: stats.avg, icon: "●" },
-              { label: "Minimum", value: stats.min, icon: "▼" },
-              { label: "Maximum", value: stats.max, icon: "▲" },
-              { label: "Jumlah Data", value: stats.count, icon: "■" },
-            ];
-
-            statsData.forEach((stat, index) => {
-              const xOffset = 70 + (index % 2) * 250;
-              const yOffset = yPosition + 45 + Math.floor(index / 2) * 25;
-
-              doc
-                .fontSize(8)
-                .fillColor(colors.gray)
-                .font("Helvetica")
-                .text(stat.label, xOffset, yOffset);
-
-              doc
-                .fontSize(11)
-                .fillColor(colors.dark)
-                .font("Helvetica-Bold")
-                .text(stat.value.toString(), xOffset + 80, yOffset);
+            doc.text(
+              key.toUpperCase().replace(/_/g, " "),
+              statsColX[0],
+              yPosition + 5,
+              { width: statsColW[0] }
+            );
+            doc.text(stats.avg, statsColX[1], yPosition + 5, {
+              width: statsColW[1],
+              align: "center",
+            });
+            doc.text(stats.min, statsColX[2], yPosition + 5, {
+              width: statsColW[2],
+              align: "center",
+            });
+            doc.text(stats.max, statsColX[3], yPosition + 5, {
+              width: statsColW[3],
+              align: "center",
+            });
+            doc.text(stats.count.toString(), statsColX[4], yPosition + 5, {
+              width: statsColW[4],
+              align: "center",
             });
 
-            yPosition += 120;
+            yPosition += 18;
           }
         });
 
-        // Removal Efficiency Section
+        // ========================================
+        // 🔥 COMPACT REMOVAL EFFICIENCY
+        // ========================================
         const removalStats = Object.entries(summary.parameters).filter(
           ([key, value]) => typeof value === "string" && key.includes("removal")
         );
 
         if (removalStats.length > 0) {
-          if (yPosition > 650) {
-            doc.addPage();
-            doc.rect(0, 0, 612, 60).fill(colors.primary);
+          yPosition += 15;
+
+          doc
+            .fontSize(12)
+            .fillColor(colors.dark)
+            .font("Helvetica-Bold")
+            .text("EFISIENSI REMOVAL", 40, yPosition);
+
+          doc
+            .strokeColor(colors.success)
+            .lineWidth(2)
+            .moveTo(40, yPosition + 18)
+            .lineTo(170, yPosition + 18)
+            .stroke();
+
+          yPosition += 30;
+
+          // Horizontal layout for removal efficiency
+          const removalBoxWidth = 532 / removalStats.length;
+          removalStats.forEach(([key, value], index) => {
+            const xPos = 40 + index * removalBoxWidth;
+
+            doc.rect(xPos, yPosition, removalBoxWidth - 5, 40).fill("#d1fae5");
+
             doc
-              .fontSize(16)
-              .fillColor(colors.white)
-              .font("Helvetica-Bold")
-              .text("EFISIENSI REMOVAL", 50, 22);
-            yPosition = 100;
-          } else {
-            yPosition += 20;
+              .fontSize(7)
+              .fillColor(colors.dark)
+              .font("Helvetica")
+              .text(
+                key.toUpperCase().replace(/_REMOVAL/g, ""),
+                xPos + 5,
+                yPosition + 8,
+                { width: removalBoxWidth - 10, align: "center" }
+              );
+
             doc
               .fontSize(14)
-              .fillColor(colors.dark)
-              .font("Helvetica-Bold")
-              .text("EFISIENSI REMOVAL", 50, yPosition);
-
-            doc
-              .strokeColor(colors.success)
-              .lineWidth(3)
-              .moveTo(50, yPosition + 25)
-              .lineTo(220, yPosition + 25)
-              .stroke();
-
-            yPosition += 50;
-          }
-
-          removalStats.forEach(([key, value]) => {
-            doc.roundedRect(50, yPosition, 512, 50, 8).fill("#d1fae5");
-
-            doc
-              .fontSize(11)
-              .fillColor(colors.dark)
-              .font("Helvetica-Bold")
-              .text(key.toUpperCase().replace(/_/g, " "), 70, yPosition + 12);
-
-            doc
-              .fontSize(16)
               .fillColor(colors.success)
               .font("Helvetica-Bold")
-              .text(value, 70, yPosition + 28);
-
-            yPosition += 65;
+              .text(value, xPos + 5, yPosition + 20, {
+                width: removalBoxWidth - 10,
+                align: "center",
+              });
           });
+
+          yPosition += 50;
         }
 
         // ========================================
-        // PAGE 3+ - Data Table
+        // 🔥 COMPACT DATA TABLE (Only if space available)
         // ========================================
-        doc.addPage();
 
-        // Page Header
-        doc.rect(0, 0, 612, 60).fill(colors.primary);
+        // Check if we need new page
+        if (yPosition > 650) {
+          doc.addPage();
+          yPosition = 60;
+        } else {
+          yPosition += 15;
+        }
+
         doc
-          .fontSize(16)
-          .fillColor(colors.white)
+          .fontSize(12)
+          .fillColor(colors.dark)
           .font("Helvetica-Bold")
-          .text("DATA PEMBACAAN TERAKHIR", 50, 22);
+          .text("DATA PEMBACAAN TERAKHIR (Top 20)", 40, yPosition);
 
-        yPosition = 100;
+        doc
+          .strokeColor(colors.secondary)
+          .lineWidth(2)
+          .moveTo(40, yPosition + 18)
+          .lineTo(240, yPosition + 18)
+          .stroke();
 
-        // Table Header
+        yPosition += 30;
+
+        // Compact table header
         const tableTop = yPosition;
-        const colWidths = [130, 60, 65, 60, 65];
-        const colX = [50, 180, 240, 305, 365];
+        const colWidths = [110, 55, 60, 55, 60];
+        const colX = [40, 150, 205, 265, 320];
         const headers = [
           "Waktu",
           "Inlet pH",
@@ -638,56 +597,47 @@ const reportService = {
         ];
 
         // Header background
-        doc.rect(50, tableTop, 480, 25).fill(colors.primary);
+        doc.rect(40, tableTop, 380, 18).fill(colors.primary);
 
         // Header text
-        doc.fontSize(9).font("Helvetica-Bold").fillColor(colors.white);
+        doc.fontSize(7).font("Helvetica-Bold").fillColor(colors.white);
         headers.forEach((header, i) => {
-          doc.text(header, colX[i], tableTop + 8, {
+          doc.text(header, colX[i], tableTop + 5, {
             width: colWidths[i],
             align: i === 0 ? "left" : "center",
           });
         });
 
-        // Table rows
-        yPosition = tableTop + 30;
-        const recentData = data.slice(0, 25);
+        // Table rows - LIMIT TO 20 rows only
+        yPosition = tableTop + 18;
+        const recentData = data.slice(0, 20);
         let rowColor = true;
 
-        doc.font("Helvetica").fontSize(8);
+        doc.font("Helvetica").fontSize(7);
 
         recentData.forEach((row, index) => {
-          // Check if need new page
-          if (yPosition > 750) {
+          // Check if need new page (but unlikely with 20 rows)
+          if (yPosition > 770) {
             doc.addPage();
-
-            // Repeat header
-            doc.rect(0, 0, 612, 60).fill(colors.primary);
-            doc
-              .fontSize(16)
-              .fillColor(colors.white)
-              .font("Helvetica-Bold")
-              .text("DATA PEMBACAAN (Lanjutan)", 50, 22);
-
-            yPosition = 100;
+            yPosition = 60;
 
             // Repeat table header
-            doc.rect(50, yPosition, 480, 25).fill(colors.primary);
-            doc.fontSize(9).font("Helvetica-Bold").fillColor(colors.white);
+            doc.rect(40, yPosition, 380, 18).fill(colors.primary);
+            doc.fontSize(7).font("Helvetica-Bold").fillColor(colors.white);
             headers.forEach((header, i) => {
-              doc.text(header, colX[i], yPosition + 8, {
+              doc.text(header, colX[i], yPosition + 5, {
                 width: colWidths[i],
                 align: i === 0 ? "left" : "center",
               });
             });
 
-            yPosition += 30;
+            yPosition += 18;
             rowColor = true;
           }
 
           // Alternate row colors
           if (rowColor) {
-            doc.rect(50, yPosition - 3, 480, 20).fill(colors.lightGray);
+            doc.rect(40, yPosition - 2, 380, 15).fill(colors.lightGray);
           }
           rowColor = !rowColor;
 
@@ -728,7 +678,7 @@ const reportService = {
             { width: colWidths[4], align: "center" }
           );
 
-          yPosition += 20;
+          yPosition += 15;
         });
 
         // ========================================

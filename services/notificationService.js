@@ -140,14 +140,14 @@ async function sendAlerts(alerts) {
  */
 async function getNotificationRecipients() {
   try {
-    // Query users with role admin or manager
+    // Query users with role admin, manager, or operator
     const usersSnapshot = await db
       .collection("users")
-      .where("role", "in", ["admin", "manager"])
+      .where("role", "in", ["admin", "manager", "operator"])
       .get();
 
     if (usersSnapshot.empty) {
-      console.log("⚠️  No admin/manager users found in Firestore");
+      console.log("⚠️  No admin/manager/operator users found in Firestore");
       return {
         emails: [],
         fcmTokens: [],
@@ -160,12 +160,12 @@ async function getNotificationRecipients() {
     usersSnapshot.forEach((doc) => {
       const userData = doc.data();
 
-      // Collect emails
+      // Collect emails (REQUIRED)
       if (userData.email) {
         emails.push(userData.email);
       }
 
-      // Collect FCM tokens (if exists)
+      // Collect FCM tokens (OPTIONAL - for mobile push notifications)
       if (userData.fcm_token) {
         fcmTokens.push(userData.fcm_token);
       }
