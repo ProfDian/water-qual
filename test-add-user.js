@@ -4,8 +4,8 @@ const { db } = require("./config/firebase-config");
 async function addTestUser() {
   try {
     await db.collection("users").add({
-      email: "rahadian.arif.wicaksana@gmail.com",
-      username: "ian",
+      email: "abdulfattah@students.undip.ac.id",
+      username: "Fattah",
       role: "manager",
       created_at: new Date(),
     });
