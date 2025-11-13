@@ -268,16 +268,13 @@ const reportService = {
 
   /**
    * Generate PDF file using PDFKit (returns BUFFER)
-   */
-  /**
-   * Generate PDF file using PDFKit (returns BUFFER)
-   * 🔥 COMPACT VERSION with LOGO - 1-2 Pages Maximum
+   * Clean professional version without emojis
    */
   generatePDF: async (data, summary, filters) => {
     return new Promise((resolve, reject) => {
       try {
-        console.log("🔧 Starting PDF generation...");
-        console.log(`📊 Data rows: ${data.length}`);
+        console.log("Starting PDF generation...");
+        console.log(`Data rows: ${data.length}`);
 
         // Create PDF document - COMPACT margins
         const doc = new PDFDocument({
@@ -301,12 +298,12 @@ const reportService = {
 
         doc.on("end", () => {
           const buffer = Buffer.concat(chunks);
-          console.log(`✅ PDF generation complete: ${buffer.length} bytes`);
+          console.log(`PDF generation complete: ${buffer.length} bytes`);
           resolve(buffer);
         });
 
         doc.on("error", (error) => {
-          console.error("❌ PDFKit error:", error);
+          console.error("PDFKit error:", error);
           reject(error);
         });
 
@@ -327,16 +324,15 @@ const reportService = {
         };
 
         // ========================================
-        // 🔥 PROFESSIONAL HEADER WITH LOGO PLACEHOLDER
+        // PROFESSIONAL HEADER WITH LOGO
         // ========================================
         let yPosition = 20;
 
-        // Header background with gradient effect (simulated with rectangles)
+        // Header background with gradient effect
         doc.rect(0, 0, 612, 100).fill(colors.primary);
         doc.rect(0, 95, 612, 5).fill(colors.accent);
 
         // Logo placeholder (circle with UNDIP text)
-        // You can replace this with actual logo using doc.image() if you have the logo file
         doc.circle(70, 50, 30).lineWidth(3).stroke(colors.white);
 
         doc
@@ -381,7 +377,7 @@ const reportService = {
           .fontSize(9)
           .fillColor(colors.gray)
           .font("Helvetica-Bold")
-          .text("📅 PERIODE", cardStartX + 10, yPosition + 10);
+          .text("PERIODE", cardStartX + 10, yPosition + 10);
 
         doc
           .fontSize(10)
@@ -415,7 +411,7 @@ const reportService = {
           .fillColor(colors.gray)
           .font("Helvetica-Bold")
           .text(
-            "📊 TOTAL DATA",
+            "TOTAL DATA",
             cardStartX + cardWidth + cardGap + 10,
             yPosition + 10
           );
@@ -446,7 +442,7 @@ const reportService = {
           .fillColor(colors.gray)
           .font("Helvetica-Bold")
           .text(
-            "📄 TANGGAL LAPORAN",
+            "TANGGAL LAPORAN",
             cardStartX + (cardWidth + cardGap) * 2 + 10,
             yPosition + 10
           );
@@ -475,7 +471,7 @@ const reportService = {
           .fontSize(13)
           .fillColor(colors.dark)
           .font("Helvetica-Bold")
-          .text("📈 STATISTIK PARAMETER", 40, yPosition);
+          .text("STATISTIK PARAMETER", 40, yPosition);
 
         doc
           .strokeColor(colors.primary)
@@ -507,7 +503,7 @@ const reportService = {
         let rowAlt = true;
         Object.entries(summary.parameters).forEach(([key, stats]) => {
           if (typeof stats === "object" && stats !== null) {
-            // Check page break - more aggressive
+            // Check page break
             if (yPosition > 720) {
               doc.addPage();
               yPosition = 40;
@@ -526,7 +522,7 @@ const reportService = {
               rowAlt = true;
             }
 
-            // Alternating row colors with rounded corners for first/last
+            // Alternating row colors
             if (rowAlt) {
               doc.rect(40, yPosition, 532, 20).fill("#f9fafb");
             }
@@ -534,7 +530,7 @@ const reportService = {
 
             doc.fontSize(9).font("Helvetica-Bold").fillColor(colors.dark);
 
-            // Parameter name with icon
+            // Parameter name
             const paramName = key.toUpperCase().replace(/_/g, " ");
             doc.text(paramName, statsColX[0], yPosition + 6, {
               width: statsColW[0],
@@ -571,7 +567,7 @@ const reportService = {
           .stroke();
 
         // ========================================
-        // REMOVAL EFFICIENCY - MODERN DESIGN
+        // REMOVAL EFFICIENCY
         // ========================================
         const removalStats = Object.entries(summary.parameters).filter(
           ([key, value]) => typeof value === "string" && key.includes("removal")
@@ -584,7 +580,7 @@ const reportService = {
             .fontSize(13)
             .fillColor(colors.dark)
             .font("Helvetica-Bold")
-            .text("🎯 EFISIENSI REMOVAL", 40, yPosition);
+            .text("EFISIENSI REMOVAL", 40, yPosition);
 
           doc
             .strokeColor(colors.success)
@@ -595,14 +591,14 @@ const reportService = {
 
           yPosition += 28;
 
-          // Modern card layout for removal efficiency
+          // Card layout for removal efficiency
           const removalBoxWidth = Math.floor(532 / removalStats.length);
           const removalBoxHeight = 65;
 
           removalStats.forEach(([key, value], index) => {
             const xPos = 40 + index * removalBoxWidth;
 
-            // Gradient effect with rounded corners
+            // Rounded corners box
             doc
               .roundedRect(
                 xPos + 2,
@@ -613,7 +609,7 @@ const reportService = {
               )
               .fill("#d1fae5");
 
-            // Add subtle border
+            // Add border
             doc
               .roundedRect(
                 xPos + 2,
@@ -632,24 +628,19 @@ const reportService = {
               .text(
                 key.toUpperCase().replace(/_REMOVAL/g, ""),
                 xPos + 8,
-                yPosition + 12,
+                yPosition + 18,
                 { width: removalBoxWidth - 16, align: "center" }
               );
 
-            // Removal percentage with icon
+            // Removal percentage
             doc
-              .fontSize(20)
+              .fontSize(18)
               .fillColor(colors.success)
               .font("Helvetica-Bold")
-              .text("↓", xPos + 8, yPosition + 28, {
+              .text(value, xPos + 8, yPosition + 36, {
                 width: removalBoxWidth - 16,
                 align: "center",
               });
-
-            doc.fontSize(16).text(value, xPos + 8, yPosition + 38, {
-              width: removalBoxWidth - 16,
-              align: "center",
-            });
           });
 
           yPosition += removalBoxHeight + 10;
@@ -670,7 +661,7 @@ const reportService = {
           .fontSize(13)
           .fillColor(colors.dark)
           .font("Helvetica-Bold")
-          .text("📋 DATA PEMBACAAN TERKINI", 40, yPosition);
+          .text("DATA PEMBACAAN TERKINI", 40, yPosition);
 
         doc
           .strokeColor(colors.secondary)
@@ -681,7 +672,7 @@ const reportService = {
 
         yPosition += 28;
 
-        // Modern table with better spacing
+        // Table with better spacing
         const tableTop = yPosition;
         const colWidths = [105, 52, 58, 52, 58, 52, 58];
         const colX = [40, 145, 197, 255, 307, 365, 417];
@@ -708,13 +699,13 @@ const reportService = {
 
         yPosition = tableTop + 20;
 
-        // Table rows - LIMIT TO 15 rows for better layout
+        // Table rows - LIMIT TO 15 rows
         const recentData = data.slice(0, 15);
         let rowColor = true;
 
         doc.font("Helvetica").fontSize(7);
 
-        recentData.forEach((row, index) => {
+        recentData.forEach((row) => {
           // Check if need new page
           if (yPosition > 750) {
             doc.addPage();
@@ -832,7 +823,7 @@ const reportService = {
               { align: "center", width: doc.page.width }
             );
 
-          // Footer text with logo
+          // Footer text
           doc
             .fontSize(7)
             .fillColor(colors.gray)
@@ -851,14 +842,14 @@ const reportService = {
             });
         }
 
-        console.log("✅ PDF content written, finalizing...");
+        console.log("PDF content written, finalizing...");
 
         // Finalize PDF
         doc.end();
 
-        console.log("✅ doc.end() called");
+        console.log("doc.end() called");
       } catch (error) {
-        console.error("❌ Error in PDF generation:", error);
+        console.error("Error in PDF generation:", error);
         console.error("Stack:", error.stack);
         reject(error);
       }
@@ -868,4 +859,4 @@ const reportService = {
 
 module.exports = reportService;
 
-console.log("📦 reportService (v4 - PDFKit) loaded");
+console.log("reportService (v4 - PDFKit) loaded");
