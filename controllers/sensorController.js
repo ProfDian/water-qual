@@ -7,6 +7,7 @@
  */
 
 const { admin, db } = require("../config/firebase-config");
+const { invalidateCache } = require("../middleware/cacheMiddleware");
 
 // ========================================
 // EXISTING FUNCTIONS (keep these)
@@ -287,6 +288,9 @@ exports.updateSensor = async (req, res) => {
 
     // Update sensor
     await sensorRef.update(updateData);
+
+    // ♻️ Invalidate related caches
+    invalidateCache(["/api/sensors", `/api/sensors/${id}`, "/api/dashboard"]);
 
     console.log(`✅ Sensor updated: ${id}`);
 

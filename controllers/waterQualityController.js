@@ -15,6 +15,7 @@
 
 const waterQualityService = require("../services/waterQualityService");
 const waterQualityModel = require("../models/waterQualityModel");
+const { invalidateCache } = require("../middleware/cacheMiddleware");
 
 /**
  * ========================================
@@ -72,6 +73,16 @@ exports.submitReading = async (req, res) => {
     });
 
     console.log(`✅ Reading processed: merged=${result.merged}`);
+
+    // ♻️ Invalidate related caches when data is merged
+    if (result.merged) {
+      invalidateCache([
+        "/api/dashboard",
+        "/api/sensors/readings",
+        "/api/alerts",
+      ]);
+      console.log("♻️  Cache invalidated for new reading");
+    }
 
     // Return appropriate response
     if (result.merged) {

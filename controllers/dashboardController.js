@@ -466,6 +466,14 @@ exports.getReadingsForChart = async (req, res) => {
         // Unix timestamp for numeric operations
         unix_timestamp: timestamp.getTime(),
         // Formatted strings for display only (not for parsing)
+        date: timestamp.toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "short",
+        }), // "10 Nov" - short format for chart axis
+        time: timestamp.toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }), // "07:29" - for chart axis
         date_display: timestamp.toLocaleDateString("id-ID", {
           day: "2-digit",
           month: "short",

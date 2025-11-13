@@ -68,8 +68,35 @@ exports.login = async (req, res) => {
         authError.response?.data || authError.message
       );
 
-      const errorMessage =
-        authError.response?.data?.error?.message || "Invalid email or password";
+      // Map Firebase error codes to user-friendly messages
+      const firebaseErrorCode = authError.response?.data?.error?.message;
+      let errorMessage = "Invalid email or password";
+
+      switch (firebaseErrorCode) {
+        case "EMAIL_NOT_FOUND":
+          errorMessage = "No account found with this email address";
+          break;
+        case "INVALID_PASSWORD":
+          errorMessage = "Incorrect password. Please try again";
+          break;
+        case "USER_DISABLED":
+          errorMessage = "This account has been disabled";
+          break;
+        case "TOO_MANY_ATTEMPTS_TRY_LATER":
+          errorMessage =
+            "Too many failed login attempts. Please try again later";
+          break;
+        case "INVALID_LOGIN_CREDENTIALS":
+          errorMessage =
+            "Invalid email or password. Please check your credentials";
+          break;
+        case "INVALID_EMAIL":
+          errorMessage = "Invalid email address format";
+          break;
+        default:
+          errorMessage =
+            "Login failed. Please check your credentials and try again";
+      }
 
       return res.status(401).json({
         success: false,
@@ -218,4 +245,67 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-console.log("📦 authController (with getProfile) loaded");
+/**
+ * CHECK EMAIL EXISTS
+ * Endpoint: POST /auth/check-email
+ * Check if email exists in the system (for forgot password validation)
+ */
+exports.checkEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    console.log("� Checking if email exists:", email);
+
+    // Validasi input
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email address format",
+        exists: false,
+      });
+    }
+
+    // Check in Firebase Authentication (NOT Firestore!)
+    let exists = false;
+    try {
+      const userRecord = await admin.auth().getUserByEmail(email);
+      exists = !!userRecord; // User exists in Firebase Auth
+      console.log("✅ Email found in Firebase Auth:", userRecord.uid);
+    } catch (authError) {
+      if (authError.code === "auth/user-not-found") {
+        console.log("❌ Email not found in Firebase Auth");
+        exists = false;
+      } else {
+        // Other errors (e.g., network issues)
+        throw authError;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      exists: exists,
+      message: exists
+        ? "Email exists in the system"
+        : "No account found with this email address",
+    });
+  } catch (error) {
+    console.error("💥 Error checking email:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to check email",
+      error: error.message,
+      exists: false,
+    });
+  }
+};
+
+console.log("�📦 authController (with getProfile and checkEmail) loaded");
