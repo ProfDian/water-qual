@@ -34,7 +34,7 @@ const { requireAuth } = require("../middleware/authMiddleware");
  * }
  */
 router.post("/login", authController.login);
-[4];
+
 /**
  * POST /auth/logout
  * Logout user
@@ -46,6 +46,25 @@ router.post("/login", authController.login);
  * }
  */
 router.post("/logout", authController.logout);
+
+/**
+ * POST /auth/check-email
+ * Check if email exists in the system
+ * Used for forgot password validation
+ *
+ * Body:
+ * {
+ *   "email": "user@example.com"
+ * }
+ *
+ * Response:
+ * {
+ *   "success": true,
+ *   "exists": true/false,
+ *   "message": "..."
+ * }
+ */
+router.post("/check-email", authController.checkEmail);
 
 /**
  * GET /auth/profile
@@ -68,4 +87,4 @@ router.get("/profile", requireAuth, authController.getProfile);
 
 module.exports = router;
 
-console.log("📦 authRoutes (with profile) loaded");
+console.log("📦 authRoutes (with profile and check-email) loaded");

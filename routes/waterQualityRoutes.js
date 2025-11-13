@@ -83,32 +83,23 @@ router.get("/health", waterQualityController.healthCheck);
  * ========================================
  * DATA RETRIEVAL ENDPOINTS (WITH AUTH)
  * ========================================
- * These endpoints require user authentication
- * Used by frontend dashboard
+ * ⚠️ DEPRECATED ENDPOINTS REMOVED (2025-01-25)
+ *
+ * The following endpoints were redundant and have been removed:
+ * ❌ GET /readings - Use /api/sensors/readings instead
+ * ❌ GET /readings/latest/:ipal_id - Use /api/dashboard/summary/:ipal_id instead
+ * ❌ GET /stats - Use /api/dashboard/summary/:ipal_id instead
+ *
+ * Reason: Reduces API complexity and improves maintainability.
+ * Migration: Update frontend to use consolidated dashboard/sensor endpoints.
  */
-
-/**
- * GET /api/water-quality/readings
- * Get water quality readings with pagination
- *
- * Query params:
- *   - limit: number (default: 50, max: 100)
- *   - ipal_id: number (optional, filter by IPAL)
- *
- * Example: GET /api/water-quality/readings?limit=20&ipal_id=1
- *
- * Response:
- * {
- *   "success": true,
- *   "count": 20,
- *   "data": [...]
- * }
- */
-router.get("/readings", requireAuth, waterQualityController.getReadings);
 
 /**
  * GET /api/water-quality/readings/:id
- * Get specific reading by ID
+ * Get specific reading by ID (merged inlet+outlet data)
+ *
+ * ⚠️ Note: This is the ONLY reading endpoint in water-quality routes
+ * It's kept because it returns MERGED data specific to water quality system
  *
  * Example: GET /api/water-quality/readings/reading_abc123
  *
@@ -124,48 +115,6 @@ router.get("/readings", requireAuth, waterQualityController.getReadings);
  * }
  */
 router.get("/readings/:id", requireAuth, waterQualityController.getReadingById);
-
-/**
- * GET /api/water-quality/readings/latest/:ipal_id
- * Get latest reading for specific IPAL
- *
- * Example: GET /api/water-quality/readings/latest/1
- *
- * Response:
- * {
- *   "success": true,
- *   "data": {...}
- * }
- */
-router.get(
-  "/readings/latest/:ipal_id",
-  requireAuth,
-  waterQualityController.getLatestReading
-);
-
-/**
- * GET /api/water-quality/stats
- * Get statistics summary for dashboard
- *
- * Query params:
- *   - ipal_id: number (default: 1)
- *   - days: number (default: 7, data from last N days)
- *
- * Example: GET /api/water-quality/stats?ipal_id=1&days=7
- *
- * Response:
- * {
- *   "success": true,
- *   "data": {
- *     "total_readings": 100,
- *     "average_quality_score": 85,
- *     "status_distribution": {...},
- *     "total_alerts": 5,
- *     "latest_reading": {...}
- *   }
- * }
- */
-router.get("/stats", requireAuth, waterQualityController.getStats);
 
 /**
  * ========================================

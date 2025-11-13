@@ -9,6 +9,7 @@
 const express = require("express");
 const router = express.Router();
 const sensorController = require("../controllers/sensorController");
+const { cacheMiddleware } = require("../middleware/cacheMiddleware");
 const {
   requireAuth,
   requireManager,
@@ -22,16 +23,24 @@ const {
 /**
  * GET /api/sensors/readings
  * Get all readings with filters (AUTH required)
+ * Cache: 45 seconds
  */
-router.get("/readings", requireAuth, sensorController.getReadings);
+router.get(
+  "/readings",
+  requireAuth,
+  cacheMiddleware(45),
+  sensorController.getReadings
+);
 
 /**
  * GET /api/sensors/readings/latest/:ipal_id
  * Get latest reading per IPAL (AUTH required)
+ * Cache: 20 seconds (latest data needs to be fresh)
  */
 router.get(
   "/readings/latest/:ipal_id",
   requireAuth,
+  cacheMiddleware(20),
   sensorController.getLatestReading
 );
 
@@ -42,6 +51,7 @@ router.get(
 /**
  * GET /api/sensors
  * Get all sensors with filters & pagination
+ * Cache: 60 seconds (sensor list doesn't change often)
  *
  * Query params:
  *   - ipal_id: number (optional)
@@ -49,13 +59,24 @@ router.get(
  *   - status: 'active' | 'inactive' | 'maintenance' (optional)
  *   - limit: number (default: 50)
  */
-router.get("/", requireAuth, sensorController.getAllSensors);
+router.get(
+  "/",
+  requireAuth,
+  cacheMiddleware(60),
+  sensorController.getAllSensors
+);
 
 /**
  * GET /api/sensors/:id
  * Get sensor by ID
+ * Cache: 90 seconds (individual sensor details rarely change)
  */
-router.get("/:id", requireAuth, sensorController.getSensorById);
+router.get(
+  "/:id",
+  requireAuth,
+  cacheMiddleware(90),
+  sensorController.getSensorById
+);
 
 /**
  * PUT /api/sensors/:id
@@ -74,22 +95,36 @@ router.put("/:id", requireAuth, requireManager, sensorController.updateSensor);
 /**
  * GET /api/sensors/:id/status
  * Get sensor status (online/offline) based on last reading
+ * Cache: 30 seconds
  */
-router.get("/:id/status", requireAuth, sensorController.getSensorStatus);
+router.get(
+  "/:id/status",
+  requireAuth,
+  cacheMiddleware(30),
+  sensorController.getSensorStatus
+);
 
 /**
  * GET /api/sensors/ipal/:ipal_id
  * Get all sensors for specific IPAL
+ * Cache: 60 seconds
  */
-router.get("/ipal/:ipal_id", requireAuth, sensorController.getSensorsByIpal);
+router.get(
+  "/ipal/:ipal_id",
+  requireAuth,
+  cacheMiddleware(60),
+  sensorController.getSensorsByIpal
+);
 
 /**
  * GET /api/sensors/:id/latest
  * Get latest reading for specific sensor
+ * Cache: 25 seconds
  */
 router.get(
   "/:id/latest",
   requireAuth,
+  cacheMiddleware(25),
   sensorController.getLatestReadingBySensor
 );
 

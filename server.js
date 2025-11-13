@@ -45,6 +45,44 @@ app.use((req, res, next) => {
 });
 
 // ========================================
+// CACHE STATS ENDPOINT
+// ========================================
+const { getCacheStats, clearCache } = require("./middleware/cacheMiddleware");
+
+/**
+ * GET /api/cache/stats
+ * Get cache statistics (protected - requires auth)
+ */
+app.get("/api/cache/stats", requireAuth, (req, res) => {
+  const stats = getCacheStats();
+  res.json({
+    success: true,
+    data: stats,
+    message: "Cache statistics retrieved successfully",
+  });
+});
+
+/**
+ * DELETE /api/cache/clear
+ * Clear all cache (admin only)
+ */
+app.delete("/api/cache/clear", requireAuth, requireAdmin, (req, res) => {
+  const pattern = req.query.pattern || null;
+  const cleared = clearCache(pattern);
+
+  res.json({
+    success: true,
+    data: {
+      cleared_entries: cleared,
+      pattern: pattern || "all",
+    },
+    message: pattern
+      ? `Cleared ${cleared} cache entries matching: ${pattern}`
+      : `Cleared all cache (${cleared} entries)`,
+  });
+});
+
+// ========================================
 // HEALTH CHECK
 // ========================================
 app.get("/", (req, res) => {
@@ -101,13 +139,19 @@ const waterQualityRoutes = require("./routes/waterQualityRoutes");
 app.use("/api/water-quality", waterQualityRoutes);
 console.log("✅ waterQualityRoutes loaded");
 
-// 8. Statistic routes (TODO: akan dibuat ulang)
+// 8. User Management routes (NEW)
+console.log("📦 Loading userRoutes...");
+const userRoutes = require("./routes/userRoutes");
+app.use("/api/users", userRoutes);
+console.log("✅ userRoutes loaded");
+
+// 9. Statistic routes (TODO: akan dibuat ulang)
 // console.log("📦 Loading statisticRoutes...");
 // const statisticRoutes = require("./routes/statisticRoutes");
 // app.use("/api/statistics", statisticRoutes);
 // console.log("✅ statisticRoutes loaded");
 
-// 9. Chart routes (TODO: akan dibuat ulang)
+// 10. Chart routes (TODO: akan dibuat ulang)
 // console.log("📦 Loading chartRoutes...");
 // const chartRoutes = require("./routes/chartRoutes");
 // app.use("/api/charts", chartRoutes);

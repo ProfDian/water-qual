@@ -271,7 +271,7 @@ const reportService = {
    */
   /**
    * Generate PDF file using PDFKit (returns BUFFER)
-   * 🔥 COMPACT VERSION - 1-2 Pages Maximum
+   * 🔥 COMPACT VERSION with LOGO - 1-2 Pages Maximum
    */
   generatePDF: async (data, summary, filters) => {
     return new Promise((resolve, reject) => {
@@ -314,8 +314,9 @@ const reportService = {
         // COLOR PALETTE
         // ========================================
         const colors = {
-          primary: "#0066cc",
+          primary: "#003d82", // UNDIP Blue
           secondary: "#4a90e2",
+          accent: "#fbbf24", // Gold accent
           success: "#10b981",
           warning: "#f59e0b",
           danger: "#ef4444",
@@ -326,318 +327,417 @@ const reportService = {
         };
 
         // ========================================
-        // 🔥 COMPACT HEADER - All in one page
+        // 🔥 PROFESSIONAL HEADER WITH LOGO PLACEHOLDER
         // ========================================
-        let yPosition = 30;
+        let yPosition = 20;
 
-        // Thin header bar
-        doc.rect(0, 0, 612, 80).fill(colors.primary);
+        // Header background with gradient effect (simulated with rectangles)
+        doc.rect(0, 0, 612, 100).fill(colors.primary);
+        doc.rect(0, 95, 612, 5).fill(colors.accent);
 
-        // Title
+        // Logo placeholder (circle with UNDIP text)
+        // You can replace this with actual logo using doc.image() if you have the logo file
+        doc.circle(70, 50, 30).lineWidth(3).stroke(colors.white);
+
+        doc
+          .fontSize(10)
+          .fillColor(colors.white)
+          .font("Helvetica-Bold")
+          .text("UNDIP", 50, 42, { width: 40, align: "center" });
+
+        // Title and subtitle
         doc
           .fillColor(colors.white)
-          .fontSize(20)
+          .fontSize(22)
           .font("Helvetica-Bold")
-          .text("LAPORAN KUALITAS AIR", 40, 20);
+          .text("LAPORAN KUALITAS AIR", 120, 25);
 
-        // Subtitle
         doc
           .fontSize(11)
           .font("Helvetica")
-          .text("IPAL Teknik Lingkungan - Universitas Diponegoro", 40, 48);
+          .text("IPAL Teknik Lingkungan", 120, 52);
 
-        yPosition = 100;
-
-        // ========================================
-        // COMPACT INFO BOX (3 columns in 1 row)
-        // ========================================
-        doc.rect(40, yPosition, 532, 60).fill(colors.lightGray);
-
-        // Column 1: Period
         doc
-          .fontSize(8)
-          .fillColor(colors.gray)
+          .fontSize(10)
           .font("Helvetica")
-          .text("PERIODE", 50, yPosition + 12);
+          .text("Universitas Diponegoro", 120, 70);
+
+        yPosition = 115;
+
+        // ========================================
+        // PROFESSIONAL INFO CARDS (3 columns)
+        // ========================================
+        const cardWidth = 170;
+        const cardHeight = 55;
+        const cardGap = 6;
+        const cardStartX = 40;
+
+        // Card 1: Period
+        doc
+          .roundedRect(cardStartX, yPosition, cardWidth, cardHeight, 5)
+          .fill(colors.lightGray);
+
+        doc
+          .fontSize(9)
+          .fillColor(colors.gray)
+          .font("Helvetica-Bold")
+          .text("📅 PERIODE", cardStartX + 10, yPosition + 10);
 
         doc
           .fontSize(10)
           .fillColor(colors.dark)
           .font("Helvetica-Bold")
+          .text(`${filters.start_date}`, cardStartX + 10, yPosition + 26, {
+            width: cardWidth - 20,
+          });
+
+        doc
+          .fontSize(9)
+          .fillColor(colors.gray)
+          .font("Helvetica")
+          .text("sampai", cardStartX + 10, yPosition + 40, {
+            width: cardWidth - 20,
+          });
+
+        // Card 2: Total Readings
+        doc
+          .roundedRect(
+            cardStartX + cardWidth + cardGap,
+            yPosition,
+            cardWidth,
+            cardHeight,
+            5
+          )
+          .fill("#e0f2fe");
+
+        doc
+          .fontSize(9)
+          .fillColor(colors.gray)
+          .font("Helvetica-Bold")
           .text(
-            `${filters.start_date}\nsampai\n${filters.end_date}`,
-            50,
-            yPosition + 25,
-            { width: 150, lineGap: 1 }
+            "📊 TOTAL DATA",
+            cardStartX + cardWidth + cardGap + 10,
+            yPosition + 10
           );
 
-        // Column 2: Total Readings
         doc
-          .fontSize(8)
-          .fillColor(colors.gray)
-          .font("Helvetica")
-          .text("TOTAL PEMBACAAN", 220, yPosition + 12);
-
-        doc
-          .fontSize(18)
+          .fontSize(22)
           .fillColor(colors.primary)
           .font("Helvetica-Bold")
-          .text(summary.total_readings.toString(), 220, yPosition + 28);
+          .text(
+            summary.total_readings.toString(),
+            cardStartX + cardWidth + cardGap + 10,
+            yPosition + 25
+          );
 
-        // Column 3: Report Date
+        // Card 3: Report Date
         doc
-          .fontSize(8)
+          .roundedRect(
+            cardStartX + (cardWidth + cardGap) * 2,
+            yPosition,
+            cardWidth,
+            cardHeight,
+            5
+          )
+          .fill("#fef3c7");
+
+        doc
+          .fontSize(9)
           .fillColor(colors.gray)
-          .font("Helvetica")
-          .text("DIBUAT TANGGAL", 390, yPosition + 12);
+          .font("Helvetica-Bold")
+          .text(
+            "📄 TANGGAL LAPORAN",
+            cardStartX + (cardWidth + cardGap) * 2 + 10,
+            yPosition + 10
+          );
 
         doc
-          .fontSize(10)
+          .fontSize(11)
           .fillColor(colors.dark)
           .font("Helvetica-Bold")
           .text(
             new Date().toLocaleDateString("id-ID", {
               day: "2-digit",
-              month: "short",
+              month: "long",
               year: "numeric",
             }),
-            390,
-            yPosition + 28
+            cardStartX + (cardWidth + cardGap) * 2 + 10,
+            yPosition + 28,
+            { width: cardWidth - 20 }
           );
 
-        yPosition += 80;
-
-        yPosition += 10;
+        yPosition += cardHeight + 15;
 
         // ========================================
-        // 🔥 COMPACT STATISTICS TABLE
+        // STATISTICS TABLE - OPTIMIZED
         // ========================================
-
         doc
-          .fontSize(12)
+          .fontSize(13)
           .fillColor(colors.dark)
           .font("Helvetica-Bold")
-          .text("STATISTIK PARAMETER", 40, yPosition);
+          .text("📈 STATISTIK PARAMETER", 40, yPosition);
 
         doc
           .strokeColor(colors.primary)
-          .lineWidth(2)
-          .moveTo(40, yPosition + 18)
-          .lineTo(160, yPosition + 18)
+          .lineWidth(2.5)
+          .moveTo(40, yPosition + 20)
+          .lineTo(180, yPosition + 20)
           .stroke();
 
-        yPosition += 30;
+        yPosition += 28;
 
-        // Compact table header
-        doc.rect(40, yPosition, 532, 20).fill(colors.primary);
+        // Compact table header with modern design
+        doc.roundedRect(40, yPosition, 532, 22, 3).fill(colors.primary);
 
-        const statsHeaders = ["Parameter", "Avg", "Min", "Max", "Count"];
-        const statsColX = [45, 230, 310, 390, 480];
-        const statsColW = [180, 70, 70, 80, 50];
+        const statsHeaders = ["Parameter", "Rata-rata", "Min", "Max", "Jumlah"];
+        const statsColX = [48, 240, 330, 410, 490];
+        const statsColW = [185, 80, 70, 70, 60];
 
-        doc.fontSize(8).font("Helvetica-Bold").fillColor(colors.white);
+        doc.fontSize(9).font("Helvetica-Bold").fillColor(colors.white);
         statsHeaders.forEach((header, i) => {
-          doc.text(header, statsColX[i], yPosition + 6, {
+          doc.text(header, statsColX[i], yPosition + 7, {
             width: statsColW[i],
             align: i === 0 ? "left" : "center",
           });
         });
 
-        yPosition += 20;
+        yPosition += 22;
 
-        // Compact statistics rows
+        // Statistics rows with better styling
         let rowAlt = true;
         Object.entries(summary.parameters).forEach(([key, stats]) => {
           if (typeof stats === "object" && stats !== null) {
-            // Check page break
-            if (yPosition > 750) {
+            // Check page break - more aggressive
+            if (yPosition > 720) {
               doc.addPage();
-              yPosition = 60;
+              yPosition = 40;
 
-              // Repeat header
-              doc.rect(40, yPosition, 532, 20).fill(colors.primary);
-              doc.fontSize(8).font("Helvetica-Bold").fillColor(colors.white);
+              // Repeat header on new page
+              doc.roundedRect(40, yPosition, 532, 22, 3).fill(colors.primary);
+
+              doc.fontSize(9).font("Helvetica-Bold").fillColor(colors.white);
               statsHeaders.forEach((header, i) => {
-                doc.text(header, statsColX[i], yPosition + 6, {
+                doc.text(header, statsColX[i], yPosition + 7, {
                   width: statsColW[i],
                   align: i === 0 ? "left" : "center",
                 });
               });
-              yPosition += 20;
+              yPosition += 22;
               rowAlt = true;
             }
 
+            // Alternating row colors with rounded corners for first/last
             if (rowAlt) {
-              doc.rect(40, yPosition, 532, 18).fill(colors.lightGray);
+              doc.rect(40, yPosition, 532, 20).fill("#f9fafb");
             }
             rowAlt = !rowAlt;
 
-            doc.fontSize(8).font("Helvetica").fillColor(colors.dark);
+            doc.fontSize(9).font("Helvetica-Bold").fillColor(colors.dark);
 
-            doc.text(
-              key.toUpperCase().replace(/_/g, " "),
-              statsColX[0],
-              yPosition + 5,
-              { width: statsColW[0] }
-            );
-            doc.text(stats.avg, statsColX[1], yPosition + 5, {
+            // Parameter name with icon
+            const paramName = key.toUpperCase().replace(/_/g, " ");
+            doc.text(paramName, statsColX[0], yPosition + 6, {
+              width: statsColW[0],
+            });
+
+            doc.font("Helvetica").fontSize(9);
+            doc.text(stats.avg, statsColX[1], yPosition + 6, {
               width: statsColW[1],
               align: "center",
             });
-            doc.text(stats.min, statsColX[2], yPosition + 5, {
+            doc.text(stats.min, statsColX[2], yPosition + 6, {
               width: statsColW[2],
               align: "center",
             });
-            doc.text(stats.max, statsColX[3], yPosition + 5, {
+            doc.text(stats.max, statsColX[3], yPosition + 6, {
               width: statsColW[3],
               align: "center",
             });
-            doc.text(stats.count.toString(), statsColX[4], yPosition + 5, {
+            doc.text(stats.count.toString(), statsColX[4], yPosition + 6, {
               width: statsColW[4],
               align: "center",
             });
 
-            yPosition += 18;
+            yPosition += 20;
           }
         });
 
+        // Add bottom border to table
+        doc
+          .strokeColor(colors.gray)
+          .lineWidth(0.5)
+          .moveTo(40, yPosition)
+          .lineTo(572, yPosition)
+          .stroke();
+
         // ========================================
-        // 🔥 COMPACT REMOVAL EFFICIENCY
+        // REMOVAL EFFICIENCY - MODERN DESIGN
         // ========================================
         const removalStats = Object.entries(summary.parameters).filter(
           ([key, value]) => typeof value === "string" && key.includes("removal")
         );
 
         if (removalStats.length > 0) {
-          yPosition += 15;
+          yPosition += 18;
 
           doc
-            .fontSize(12)
+            .fontSize(13)
             .fillColor(colors.dark)
             .font("Helvetica-Bold")
-            .text("EFISIENSI REMOVAL", 40, yPosition);
+            .text("🎯 EFISIENSI REMOVAL", 40, yPosition);
 
           doc
             .strokeColor(colors.success)
-            .lineWidth(2)
-            .moveTo(40, yPosition + 18)
-            .lineTo(170, yPosition + 18)
+            .lineWidth(2.5)
+            .moveTo(40, yPosition + 20)
+            .lineTo(180, yPosition + 20)
             .stroke();
 
-          yPosition += 30;
+          yPosition += 28;
 
-          // Horizontal layout for removal efficiency
-          const removalBoxWidth = 532 / removalStats.length;
+          // Modern card layout for removal efficiency
+          const removalBoxWidth = Math.floor(532 / removalStats.length);
+          const removalBoxHeight = 65;
+
           removalStats.forEach(([key, value], index) => {
             const xPos = 40 + index * removalBoxWidth;
 
-            doc.rect(xPos, yPosition, removalBoxWidth - 5, 40).fill("#d1fae5");
-
+            // Gradient effect with rounded corners
             doc
-              .fontSize(7)
+              .roundedRect(
+                xPos + 2,
+                yPosition,
+                removalBoxWidth - 6,
+                removalBoxHeight,
+                5
+              )
+              .fill("#d1fae5");
+
+            // Add subtle border
+            doc
+              .roundedRect(
+                xPos + 2,
+                yPosition,
+                removalBoxWidth - 6,
+                removalBoxHeight,
+                5
+              )
+              .stroke("#10b981");
+
+            // Parameter name
+            doc
+              .fontSize(8)
               .fillColor(colors.dark)
-              .font("Helvetica")
+              .font("Helvetica-Bold")
               .text(
                 key.toUpperCase().replace(/_REMOVAL/g, ""),
-                xPos + 5,
-                yPosition + 8,
-                { width: removalBoxWidth - 10, align: "center" }
+                xPos + 8,
+                yPosition + 12,
+                { width: removalBoxWidth - 16, align: "center" }
               );
 
+            // Removal percentage with icon
             doc
-              .fontSize(14)
+              .fontSize(20)
               .fillColor(colors.success)
               .font("Helvetica-Bold")
-              .text(value, xPos + 5, yPosition + 20, {
-                width: removalBoxWidth - 10,
+              .text("↓", xPos + 8, yPosition + 28, {
+                width: removalBoxWidth - 16,
                 align: "center",
               });
+
+            doc.fontSize(16).text(value, xPos + 8, yPosition + 38, {
+              width: removalBoxWidth - 16,
+              align: "center",
+            });
           });
 
-          yPosition += 50;
+          yPosition += removalBoxHeight + 10;
         }
 
         // ========================================
-        // 🔥 COMPACT DATA TABLE (Only if space available)
+        // DATA TABLE - RECENT READINGS
         // ========================================
-
         // Check if we need new page
-        if (yPosition > 650) {
+        if (yPosition > 600) {
           doc.addPage();
-          yPosition = 60;
+          yPosition = 40;
         } else {
-          yPosition += 15;
+          yPosition += 12;
         }
 
         doc
-          .fontSize(12)
+          .fontSize(13)
           .fillColor(colors.dark)
           .font("Helvetica-Bold")
-          .text("DATA PEMBACAAN TERAKHIR (Top 20)", 40, yPosition);
+          .text("📋 DATA PEMBACAAN TERKINI", 40, yPosition);
 
         doc
           .strokeColor(colors.secondary)
-          .lineWidth(2)
-          .moveTo(40, yPosition + 18)
-          .lineTo(240, yPosition + 18)
+          .lineWidth(2.5)
+          .moveTo(40, yPosition + 20)
+          .lineTo(210, yPosition + 20)
           .stroke();
 
-        yPosition += 30;
+        yPosition += 28;
 
-        // Compact table header
+        // Modern table with better spacing
         const tableTop = yPosition;
-        const colWidths = [110, 55, 60, 55, 60];
-        const colX = [40, 150, 205, 265, 320];
+        const colWidths = [105, 52, 58, 52, 58, 52, 58];
+        const colX = [40, 145, 197, 255, 307, 365, 417];
         const headers = [
           "Waktu",
-          "Inlet pH",
-          "Inlet TDS",
-          "Outlet pH",
-          "Outlet TDS",
+          "pH In",
+          "TDS In",
+          "pH Out",
+          "TDS Out",
+          "Turb In",
+          "Turb Out",
         ];
 
-        // Header background
-        doc.rect(40, tableTop, 380, 18).fill(colors.primary);
+        // Header with modern design
+        doc.roundedRect(40, tableTop, 532, 20, 3).fill(colors.primary);
 
-        // Header text
-        doc.fontSize(7).font("Helvetica-Bold").fillColor(colors.white);
+        doc.fontSize(8).font("Helvetica-Bold").fillColor(colors.white);
         headers.forEach((header, i) => {
-          doc.text(header, colX[i], tableTop + 5, {
+          doc.text(header, colX[i], tableTop + 6, {
             width: colWidths[i],
             align: i === 0 ? "left" : "center",
           });
         });
 
-        // Table rows - LIMIT TO 20 rows only
-        yPosition = tableTop + 18;
-        const recentData = data.slice(0, 20);
+        yPosition = tableTop + 20;
+
+        // Table rows - LIMIT TO 15 rows for better layout
+        const recentData = data.slice(0, 15);
         let rowColor = true;
 
         doc.font("Helvetica").fontSize(7);
 
         recentData.forEach((row, index) => {
-          // Check if need new page (but unlikely with 20 rows)
-          if (yPosition > 770) {
+          // Check if need new page
+          if (yPosition > 750) {
             doc.addPage();
-            yPosition = 60;
+            yPosition = 40;
 
             // Repeat table header
-            doc.rect(40, yPosition, 380, 18).fill(colors.primary);
-            doc.fontSize(7).font("Helvetica-Bold").fillColor(colors.white);
+            doc.roundedRect(40, yPosition, 532, 20, 3).fill(colors.primary);
+
+            doc.fontSize(8).font("Helvetica-Bold").fillColor(colors.white);
             headers.forEach((header, i) => {
-              doc.text(header, colX[i], yPosition + 5, {
+              doc.text(header, colX[i], yPosition + 6, {
                 width: colWidths[i],
                 align: i === 0 ? "left" : "center",
               });
             });
 
-            yPosition += 18;
+            yPosition += 20;
             rowColor = true;
           }
 
-          // Alternate row colors
+          // Alternating row colors
           if (rowColor) {
-            doc.rect(40, yPosition - 2, 380, 15).fill(colors.lightGray);
+            doc.rect(40, yPosition, 532, 16).fill("#f9fafb");
           }
           rowColor = !rowColor;
 
@@ -652,62 +752,103 @@ const reportService = {
               })
             : "N/A";
 
-          doc.text(timestamp, colX[0], yPosition, { width: colWidths[0] });
+          doc.text(timestamp, colX[0] + 2, yPosition + 4, {
+            width: colWidths[0] - 4,
+          });
           doc.text(
             row.inlet_ph != null ? row.inlet_ph.toFixed(2) : "-",
             colX[1],
-            yPosition,
+            yPosition + 4,
             { width: colWidths[1], align: "center" }
           );
           doc.text(
-            row.inlet_tds != null ? row.inlet_tds.toFixed(1) : "-",
+            row.inlet_tds != null ? row.inlet_tds.toFixed(0) : "-",
             colX[2],
-            yPosition,
+            yPosition + 4,
             { width: colWidths[2], align: "center" }
           );
           doc.text(
             row.outlet_ph != null ? row.outlet_ph.toFixed(2) : "-",
             colX[3],
-            yPosition,
+            yPosition + 4,
             { width: colWidths[3], align: "center" }
           );
           doc.text(
-            row.outlet_tds != null ? row.outlet_tds.toFixed(1) : "-",
+            row.outlet_tds != null ? row.outlet_tds.toFixed(0) : "-",
             colX[4],
-            yPosition,
+            yPosition + 4,
             { width: colWidths[4], align: "center" }
           );
+          doc.text(
+            row.inlet_turbidity != null ? row.inlet_turbidity.toFixed(1) : "-",
+            colX[5],
+            yPosition + 4,
+            { width: colWidths[5], align: "center" }
+          );
+          doc.text(
+            row.outlet_turbidity != null
+              ? row.outlet_turbidity.toFixed(1)
+              : "-",
+            colX[6],
+            yPosition + 4,
+            { width: colWidths[6], align: "center" }
+          );
 
-          yPosition += 15;
+          yPosition += 16;
         });
 
+        // Add bottom border
+        doc
+          .strokeColor(colors.gray)
+          .lineWidth(0.5)
+          .moveTo(40, yPosition)
+          .lineTo(572, yPosition)
+          .stroke();
+
         // ========================================
-        // ADD PAGE NUMBERS
+        // ADD PAGE NUMBERS AND FOOTER
         // ========================================
         const pages = doc.bufferedPageRange();
         for (let i = 0; i < pages.count; i++) {
           doc.switchToPage(i);
 
-          // Footer
+          // Footer line
           doc
-            .fontSize(8)
+            .strokeColor(colors.primary)
+            .lineWidth(1)
+            .moveTo(40, doc.page.height - 60)
+            .lineTo(572, doc.page.height - 60)
+            .stroke();
+
+          // Page number
+          doc
+            .fontSize(9)
             .fillColor(colors.gray)
             .font("Helvetica")
             .text(
               `Halaman ${i + 1} dari ${pages.count}`,
               0,
-              doc.page.height - 50,
+              doc.page.height - 45,
+              { align: "center", width: doc.page.width }
+            );
+
+          // Footer text with logo
+          doc
+            .fontSize(7)
+            .fillColor(colors.gray)
+            .text(
+              "Water Quality Monitoring System - IPAL Teknik Lingkungan",
+              0,
+              doc.page.height - 32,
               { align: "center", width: doc.page.width }
             );
 
           doc
             .fontSize(7)
-            .text(
-              "Water Quality Monitoring System - IPAL UNDIP",
-              0,
-              doc.page.height - 35,
-              { align: "center", width: doc.page.width }
-            );
+            .text("Universitas Diponegoro", 0, doc.page.height - 20, {
+              align: "center",
+              width: doc.page.width,
+            });
         }
 
         console.log("✅ PDF content written, finalizing...");

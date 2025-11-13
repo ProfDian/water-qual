@@ -11,22 +11,30 @@ const { requireAuth } = require("../middleware/authMiddleware");
 const notificationController = require("../controllers/notificationController");
 
 // ========================================
-// PUBLIC ROUTES (for testing only)
+// TEST ROUTES (development/testing only)
 // ========================================
+// ⚠️ These endpoints are ONLY available in non-production environments
+// They are disabled in production for security reasons
 
-/**
- * POST /api/notifications/test-email
- * Send test email
- * Body: { recipient: "email@example.com" }
- */
-router.post("/test-email", notificationController.sendTestEmailHandler);
+if (process.env.NODE_ENV !== "production") {
+  /**
+   * POST /api/notifications/test-email
+   * Send test email
+   * Body: { recipient: "email@example.com" }
+   */
+  router.post("/test-email", notificationController.sendTestEmailHandler);
 
-/**
- * POST /api/notifications/test-push
- * Send test push notification
- * Body: { fcm_token: "..." }
- */
-router.post("/test-push", notificationController.sendTestPushHandler);
+  /**
+   * POST /api/notifications/test-push
+   * Send test push notification
+   * Body: { fcm_token: "..." }
+   */
+  router.post("/test-push", notificationController.sendTestPushHandler);
+
+  console.log("🧪 Test notification endpoints enabled (non-production mode)");
+} else {
+  console.log("🔒 Test notification endpoints disabled (production mode)");
+}
 
 // ========================================
 // PROTECTED ROUTES (require authentication)

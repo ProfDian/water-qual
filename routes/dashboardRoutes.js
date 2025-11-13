@@ -8,27 +8,41 @@
 const express = require("express");
 const router = express.Router();
 const { requireAuth } = require("../middleware/authMiddleware");
+const { cacheMiddleware } = require("../middleware/cacheMiddleware");
 const dashboardController = require("../controllers/dashboardController");
 
 // ========================================
-// DASHBOARD ROUTES
+// DASHBOARD ROUTES (WITH CACHING)
 // ========================================
 
 /**
  * GET /api/dashboard/overview
  * Get overview of all IPALs (for homepage)
+ * Cache: 45 seconds
  */
-router.get("/overview", requireAuth, dashboardController.getOverview);
+router.get(
+  "/overview",
+  requireAuth,
+  cacheMiddleware(45),
+  dashboardController.getOverview
+);
 
 /**
  * GET /api/dashboard/summary/:ipal_id
  * Get detailed summary for specific IPAL
+ * Cache: 30 seconds (frequently accessed, shorter TTL for fresher data)
  */
-router.get("/summary/:ipal_id", requireAuth, dashboardController.getSummary);
+router.get(
+  "/summary/:ipal_id",
+  requireAuth,
+  cacheMiddleware(30),
+  dashboardController.getSummary
+);
 
 /**
  * GET /api/dashboard/readings/:ipal_id
  * Get readings for charts (optimized untuk Recharts)
+ * Cache: 60 seconds (chart data doesn't need to be super fresh)
  *
  * Query params:
  *   - period: today|yesterday|week|custom (default: today)
@@ -65,6 +79,7 @@ router.get("/summary/:ipal_id", requireAuth, dashboardController.getSummary);
 router.get(
   "/readings/:ipal_id",
   requireAuth,
+  cacheMiddleware(60),
   dashboardController.getReadingsForChart
 );
 

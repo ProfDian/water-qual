@@ -255,3 +255,6 @@ exports.getCacheStats = () => {
 
 console.log("📦 authMiddleware loaded (JWT verify with cache)");
 console.log(`⏱️  Cache duration: ${CACHE_DURATION / 1000 / 60} minutes`);
+
+// Alias for backward compatibility
+exports.verifyToken = exports.requireAuth;
