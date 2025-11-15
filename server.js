@@ -21,7 +21,12 @@ const { requireAuth, requireAdmin } = require("./middleware/authMiddleware");
 // CORS CONFIGURATION
 // ========================================
 const corsOptions = {
-  origin: "http://localhost:5173", // Frontend URL (Vite)
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://*.vercel.app", // Allow all Vercel preview URLs
+    process.env.FRONTEND_URL || "http://localhost:5173",
+  ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   exposedHeaders: ["Content-Disposition", "Content-Type"],
@@ -200,75 +205,78 @@ app.use((err, req, res, next) => {
 // ========================================
 // START SERVER
 // ========================================
-app.listen(port, () => {
-  console.log("\n========================================");
-  console.log(`🚀 Server running at http://localhost:${port}`);
-  console.log("========================================");
-  console.log("\n📍 Available endpoints:");
+// Only start server if not in Vercel (serverless environment)
+if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log("\n========================================");
+    console.log(`🚀 Server running at http://localhost:${port}`);
+    console.log("========================================");
+    console.log("\n📍 Available endpoints:");
 
-  console.log("\n🔐 Auth & Users:");
-  console.log("   POST   /auth/login");
-  console.log("   POST   /auth/register");
-  console.log("   POST   /auth/logout");
-  console.log("   GET    /auth/me");
+    console.log("\n🔐 Auth & Users:");
+    console.log("   POST   /auth/login");
+    console.log("   POST   /auth/register");
+    console.log("   POST   /auth/logout");
+    console.log("   GET    /auth/me");
 
-  console.log("\n🔧 Sensors:");
-  console.log("   GET    /api/sensors");
-  console.log("   GET    /api/sensors/:id");
-  console.log("   GET    /api/sensors/ipal/:ipal_id");
-  console.log("   GET    /api/sensors/:id/status");
-  console.log("   GET    /api/sensors/:id/latest");
-  console.log("   GET    /api/sensors/:id/history");
-  console.log("   PUT    /api/sensors/:id                    (Manager+)");
-  console.log("   GET    /api/sensors/readings");
-  console.log("   GET    /api/sensors/readings/latest/:ipal_id");
+    console.log("\n🔧 Sensors:");
+    console.log("   GET    /api/sensors");
+    console.log("   GET    /api/sensors/:id");
+    console.log("   GET    /api/sensors/ipal/:ipal_id");
+    console.log("   GET    /api/sensors/:id/status");
+    console.log("   GET    /api/sensors/:id/latest");
+    console.log("   GET    /api/sensors/:id/history");
+    console.log("   PUT    /api/sensors/:id                    (Manager+)");
+    console.log("   GET    /api/sensors/readings");
+    console.log("   GET    /api/sensors/readings/latest/:ipal_id");
 
-  console.log("\n💧 Water Quality:");
-  console.log("   POST   /api/water-quality/submit          (ESP32)");
-  console.log("   GET    /api/water-quality/health");
-  console.log("   GET    /api/water-quality/readings");
-  console.log("   GET    /api/water-quality/buffer-status");
-  console.log("   DELETE /api/water-quality/cleanup-buffer  (Admin)");
+    console.log("\n💧 Water Quality:");
+    console.log("   POST   /api/water-quality/submit          (ESP32)");
+    console.log("   GET    /api/water-quality/health");
+    console.log("   GET    /api/water-quality/readings");
+    console.log("   GET    /api/water-quality/buffer-status");
+    console.log("   DELETE /api/water-quality/cleanup-buffer  (Admin)");
 
-  console.log("\n📊 Statistics:");
-  console.log("   (TODO: Will be created)");
+    console.log("\n📊 Statistics:");
+    console.log("   (TODO: Will be created)");
 
-  console.log("\n📈 Charts:");
-  console.log("   (TODO: Will be created)");
+    console.log("\n📈 Charts:");
+    console.log("   (TODO: Will be created)");
 
-  console.log("\n🚨 Alerts:");
-  console.log("   GET    /api/alerts");
-  console.log("   GET    /api/alerts/:alert_id");
-  console.log("   PUT    /api/alerts/:alert_id/acknowledge");
-  console.log("   DELETE /api/alerts/:alert_id              (Admin)");
+    console.log("\n🚨 Alerts:");
+    console.log("   GET    /api/alerts");
+    console.log("   GET    /api/alerts/:alert_id");
+    console.log("   PUT    /api/alerts/:alert_id/acknowledge");
+    console.log("   DELETE /api/alerts/:alert_id              (Admin)");
 
-  console.log("\n🏭 IPAL Management:");
-  console.log("   GET    /api/ipals");
-  console.log("   GET    /api/ipals/:ipal_id");
-  console.log("   GET    /api/ipals/:ipal_id/stats");
+    console.log("\n🏭 IPAL Management:");
+    console.log("   GET    /api/ipals");
+    console.log("   GET    /api/ipals/:ipal_id");
+    console.log("   GET    /api/ipals/:ipal_id/stats");
 
-  console.log("\n📋 Dashboard:");
-  console.log("   GET    /api/dashboard/summary/:ipal_id");
-  console.log("   GET    /api/dashboard/overview");
-  console.log("   GET    /api/dashboard/readings/:ipal_id    (Charts)");
+    console.log("\n📋 Dashboard:");
+    console.log("   GET    /api/dashboard/summary/:ipal_id");
+    console.log("   GET    /api/dashboard/overview");
+    console.log("   GET    /api/dashboard/readings/:ipal_id    (Charts)");
 
-  console.log("\n📄 Reports:");
-  console.log("   POST   /api/reports/generate");
-  console.log("   GET    /api/reports/:report_id");
-  console.log("   GET    /api/reports");
+    console.log("\n📄 Reports:");
+    console.log("   POST   /api/reports/generate");
+    console.log("   GET    /api/reports/:report_id");
+    console.log("   GET    /api/reports");
 
-  console.log("\n🔔 Notifications:");
-  console.log("   GET    /api/notifications");
-  console.log("   POST   /api/notifications/token");
-  console.log("   PUT    /api/notifications/:id/read");
+    console.log("\n🔔 Notifications:");
+    console.log("   GET    /api/notifications");
+    console.log("   POST   /api/notifications/token");
+    console.log("   PUT    /api/notifications/:id/read");
 
-  console.log("\n🧪 Test:");
-  console.log("   GET    /admin/ping                        (Admin only)");
+    console.log("\n🧪 Test:");
+    console.log("   GET    /admin/ping                        (Admin only)");
 
-  console.log("\n========================================");
-  console.log("✨ Server ready to accept connections");
-  console.log("========================================\n");
-});
+    console.log("\n========================================");
+    console.log("✨ Server ready to accept connections");
+    console.log("========================================\n");
+  });
+}
 
 // Graceful shutdown
 process.on("SIGTERM", () => {
