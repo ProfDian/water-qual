@@ -145,7 +145,13 @@ const userRoutes = require("./routes/userRoutes");
 app.use("/api/users", userRoutes);
 console.log("✅ userRoutes loaded");
 
-// 9. Statistic routes (TODO: akan dibuat ulang)
+// 9. IPAL Management routes (NEW)
+console.log("📦 Loading ipalRoutes...");
+const ipalRoutes = require("./routes/ipalRoutes");
+app.use("/api/ipals", ipalRoutes);
+console.log("✅ ipalRoutes loaded");
+
+// 10. Statistic routes (TODO: akan dibuat ulang)
 // console.log("📦 Loading statisticRoutes...");
 // const statisticRoutes = require("./routes/statisticRoutes");
 // app.use("/api/statistics", statisticRoutes);
@@ -235,6 +241,11 @@ app.listen(port, () => {
   console.log("   GET    /api/alerts/:alert_id");
   console.log("   PUT    /api/alerts/:alert_id/acknowledge");
   console.log("   DELETE /api/alerts/:alert_id              (Admin)");
+
+  console.log("\n🏭 IPAL Management:");
+  console.log("   GET    /api/ipals");
+  console.log("   GET    /api/ipals/:ipal_id");
+  console.log("   GET    /api/ipals/:ipal_id/stats");
 
   console.log("\n📋 Dashboard:");
   console.log("   GET    /api/dashboard/summary/:ipal_id");
