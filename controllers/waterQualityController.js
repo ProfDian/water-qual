@@ -13,9 +13,31 @@
  * - GET    /api/water-quality/readings/:id    (get by ID)
  */
 
-const waterQualityService = require("../services/waterQualityService");
-const waterQualityModel = require("../models/waterQualityModel");
-const { invalidateCache } = require("../middleware/cacheMiddleware");
+// ⚡ Lazy load services to reduce cold start
+let waterQualityService;
+let waterQualityModel;
+let invalidateCache;
+
+const getWaterQualityService = () => {
+  if (!waterQualityService) {
+    waterQualityService = require("../services/waterQualityService");
+  }
+  return waterQualityService;
+};
+
+const getWaterQualityModel = () => {
+  if (!waterQualityModel) {
+    waterQualityModel = require("../models/waterQualityModel");
+  }
+  return waterQualityModel;
+};
+
+const getCacheInvalidator = () => {
+  if (!invalidateCache) {
+    ({ invalidateCache } = require("../middleware/cacheMiddleware"));
+  }
+  return invalidateCache;
+};
 
 /**
  * ========================================
@@ -64,7 +86,7 @@ exports.submitReading = async (req, res) => {
     }
 
     // Call service to process reading
-    const result = await waterQualityService.submitReading({
+    const result = await getWaterQualityService().submitReading({
       ipal_id,
       location,
       device_id,
@@ -76,7 +98,7 @@ exports.submitReading = async (req, res) => {
 
     // ♻️ Invalidate related caches when data is merged
     if (result.merged) {
-      invalidateCache([
+      getCacheInvalidator()([
         "/api/dashboard",
         "/api/sensors/readings",
         "/api/alerts",
@@ -140,7 +162,7 @@ exports.getBufferStatus = async (req, res) => {
 
     console.log("📊 Getting buffer status...");
 
-    const status = await waterQualityService.getBufferStatus(
+    const status = await getWaterQualityService().getBufferStatus(
       ipal_id ? parseInt(ipal_id) : null
     );
 
@@ -167,7 +189,7 @@ exports.cleanupBuffer = async (req, res) => {
   try {
     console.log("🧹 Starting manual buffer cleanup...");
 
-    const result = await waterQualityService.cleanupExpiredBuffer();
+    const result = await getWaterQualityService().cleanupExpiredBuffer();
 
     return res.status(200).json({
       success: true,
@@ -195,7 +217,7 @@ exports.checkIncompleteReadings = async (req, res) => {
 
     console.log("🔍 Checking for incomplete readings...");
 
-    const result = await waterQualityService.checkIncompleteReadings(
+    const result = await getWaterQualityService().checkIncompleteReadings(
       ipal_id ? parseInt(ipal_id) : 1
     );
 
@@ -271,7 +293,7 @@ exports.getReadingById = async (req, res) => {
 
     console.log(`📖 Getting reading: ${id}`);
 
-    const reading = await waterQualityModel.getReadingById(id);
+    const reading = await getWaterQualityModel().getReadingById(id);
 
     if (!reading) {
       return res.status(404).json({
@@ -305,7 +327,7 @@ exports.getLatestReading = async (req, res) => {
 
     console.log(`📖 Getting latest reading for IPAL: ${ipal_id}`);
 
-    const readings = await waterQualityModel.getLatestReadings(
+    const readings = await getWaterQualityModel().getLatestReadings(
       1,
       parseInt(ipal_id)
     );
@@ -349,7 +371,7 @@ exports.getStats = async (req, res) => {
     console.log(`📊 Getting stats for last ${days} days`);
 
     // Get recent readings
-    const readings = await waterQualityModel.getLatestReadings(
+    const readings = await getWaterQualityModel().getLatestReadings(
       parseInt(days) * 24, // Assuming hourly readings
       parseInt(ipal_id)
     );

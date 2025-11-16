@@ -100,62 +100,63 @@ app.get("/", (req, res) => {
 });
 
 // ========================================
-// ROUTES REGISTRATION
+// ROUTES REGISTRATION (LAZY LOADED)
 // ========================================
+// ⚡ Routes loaded on-demand to reduce cold start time
 
-// 1. Auth routes
-console.log("📦 Loading authRoutes...");
-const authRoutes = require("./routes/authroutes");
-app.use("/auth", authRoutes);
-console.log("✅ authRoutes loaded");
+// 1. Auth routes (lazy loaded)
+app.use("/auth", (req, res, next) => {
+  console.log("📦 Lazy loading authRoutes...");
+  require("./routes/authroutes")(req, res, next);
+});
 
-// 2. Sensor routes
-console.log("📦 Loading sensorRoutes...");
-const sensorRoutes = require("./routes/sensorRoutes");
-app.use("/api/sensors", sensorRoutes);
-console.log("✅ sensorRoutes loaded");
+// 2. Sensor routes (lazy loaded)
+app.use("/api/sensors", (req, res, next) => {
+  console.log("📦 Lazy loading sensorRoutes...");
+  require("./routes/sensorRoutes")(req, res, next);
+});
 
-// 3. Alert routes
-console.log("📦 Loading alertRoutes...");
-const alertRoutes = require("./routes/alertRoutes");
-app.use("/api/alerts", alertRoutes);
-console.log("✅ alertRoutes loaded");
+// 3. Alert routes (lazy loaded)
+app.use("/api/alerts", (req, res, next) => {
+  console.log("📦 Lazy loading alertRoutes...");
+  require("./routes/alertRoutes")(req, res, next);
+});
 
-// 4. Dashboard routes
-console.log("📦 Loading dashboardRoutes...");
-const dashboardRoutes = require("./routes/dashboardRoutes");
-app.use("/api/dashboard", dashboardRoutes);
-console.log("✅ dashboardRoutes loaded");
+// 4. Dashboard routes (lazy loaded)
+app.use("/api/dashboard", (req, res, next) => {
+  console.log("📦 Lazy loading dashboardRoutes...");
+  require("./routes/dashboardRoutes")(req, res, next);
+});
 
-// 5. Notification routes
-console.log("📦 Loading notificationRoutes...");
-const notificationRoutes = require("./routes/notificationRoutes");
-app.use("/api/notifications", notificationRoutes);
-console.log("✅ notificationRoutes loaded");
+// 5. Notification routes (lazy loaded)
+app.use("/api/notifications", (req, res, next) => {
+  console.log("📦 Lazy loading notificationRoutes...");
+  require("./routes/notificationRoutes")(req, res, next);
+});
 
-// 6. Report routes
-console.log("📦 Loading reportRoutes...");
-const reportRoutes = require("./routes/reportRoutes");
-app.use("/api/reports", reportRoutes);
-console.log("✅ reportRoutes loaded");
+// 6. Report routes (lazy loaded)
+app.use("/api/reports", (req, res, next) => {
+  console.log("📦 Lazy loading reportRoutes...");
+  require("./routes/reportRoutes")(req, res, next);
+});
 
-// 7. Water Quality routes
-console.log("📦 Loading waterQualityRoutes...");
-const waterQualityRoutes = require("./routes/waterQualityRoutes");
-app.use("/api/water-quality", waterQualityRoutes);
-console.log("✅ waterQualityRoutes loaded");
+// 7. Water Quality routes (lazy loaded)
+app.use("/api/water-quality", (req, res, next) => {
+  console.log("📦 Lazy loading waterQualityRoutes...");
+  require("./routes/waterQualityRoutes")(req, res, next);
+});
 
-// 8. User Management routes (NEW)
-console.log("📦 Loading userRoutes...");
-const userRoutes = require("./routes/userRoutes");
-app.use("/api/users", userRoutes);
-console.log("✅ userRoutes loaded");
+// 8. User Management routes (lazy loaded)
+app.use("/api/users", (req, res, next) => {
+  console.log("📦 Lazy loading userRoutes...");
+  require("./routes/userRoutes")(req, res, next);
+});
 
-// 9. IPAL Management routes (NEW)
-console.log("📦 Loading ipalRoutes...");
-const ipalRoutes = require("./routes/ipalRoutes");
-app.use("/api/ipals", ipalRoutes);
-console.log("✅ ipalRoutes loaded");
+// 9. IPAL Management routes (lazy loaded)
+app.use("/api/ipals", (req, res, next) => {
+  console.log("📦 Lazy loading ipalRoutes...");
+  require("./routes/ipalRoutes")(req, res, next);
+});
 
 // 10. Statistic routes (TODO: akan dibuat ulang)
 // console.log("📦 Loading statisticRoutes...");

@@ -12,11 +12,48 @@
  * This is the "brain" of the water quality monitoring system
  */
 
-const waterQualityModel = require("../models/waterQualityModel");
-const fuzzyService = require("./fuzzyService");
-const validationService = require("./validationService");
-const alertModel = require("../models/alertModel");
-const notificationService = require("./notificationService");
+// ⚡ Lazy load heavy dependencies to reduce cold start
+let waterQualityModel;
+let fuzzyService;
+let validationService;
+let alertModel;
+let notificationService;
+
+const getWaterQualityModel = () => {
+  if (!waterQualityModel) {
+    waterQualityModel = require("../models/waterQualityModel");
+  }
+  return waterQualityModel;
+};
+
+const getFuzzyService = () => {
+  if (!fuzzyService) {
+    console.log("⚡ Loading fuzzyService...");
+    fuzzyService = require("./fuzzyService");
+  }
+  return fuzzyService;
+};
+
+const getValidationService = () => {
+  if (!validationService) {
+    validationService = require("./validationService");
+  }
+  return validationService;
+};
+
+const getAlertModel = () => {
+  if (!alertModel) {
+    alertModel = require("../models/alertModel");
+  }
+  return alertModel;
+};
+
+const getNotificationService = () => {
+  if (!notificationService) {
+    notificationService = require("./notificationService");
+  }
+  return notificationService;
+};
 
 /**
  * ========================================
@@ -57,14 +94,17 @@ async function submitReading(data) {
 
     // Step 1: Validate input data
     console.log("🔍 Validating input...");
-    const validation = validateReadingInput(data);
-    if (!validation.valid) {
-      throw new Error(`Validation failed: ${validation.errors.join(", ")}`);
+    const inputValidation = validateReadingInput(data);
+    if (!inputValidation.valid) {
+      throw new Error(
+        `Validation failed: ${inputValidation.errors.join(", ")}`
+      );
     }
 
     // Step 2: Validate sensor data ranges
-    if (validationService && validationService.validateReadingData) {
-      const dataValidation = validationService.validateReadingData(readingData);
+    const validationSvc = getValidationService();
+    if (validationSvc && validationSvc.validateReadingData) {
+      const dataValidation = validationSvc.validateReadingData(readingData);
       if (!dataValidation.valid) {
         console.warn("⚠️ Data validation warnings:", dataValidation.warnings);
         // Continue anyway, just log warnings
@@ -73,7 +113,7 @@ async function submitReading(data) {
 
     // Step 3: Save to buffer
     console.log("💾 Saving to buffer...");
-    const bufferResult = await waterQualityModel.saveToBuffer({
+    const bufferResult = await getWaterQualityModel().saveToBuffer({
       ipal_id,
       location,
       device_id,
@@ -132,7 +172,7 @@ async function submitReading(data) {
 async function tryMerge(ipalId) {
   try {
     // Step 1: Get unmerged readings from buffer
-    const unmergedReadings = await waterQualityModel.getUnmergedReadings(
+    const unmergedReadings = await getWaterQualityModel().getUnmergedReadings(
       ipalId,
       CONFIG.MERGE_TIME_WINDOW
     );
@@ -224,7 +264,7 @@ async function processCompleteReading(mergedData) {
     // STEP 1: RUN FUZZY LOGIC ANALYSIS
     // ========================================
     console.log("🧠 Running fuzzy logic analysis...");
-    const fuzzyResult = await fuzzyService.analyze(inlet, outlet);
+    const fuzzyResult = await getFuzzyService().analyze(inlet, outlet);
 
     console.log("✅ Fuzzy analysis complete:");
     console.log(`   Score: ${fuzzyResult.quality_score}/100`);
@@ -255,7 +295,9 @@ async function processCompleteReading(mergedData) {
     // STEP 3: SAVE TO FINAL COLLECTION
     // ========================================
     console.log("💾 Saving to water_quality_readings...");
-    const readingId = await waterQualityModel.saveToFinalReadings(completeData);
+    const readingId = await getWaterQualityModel().saveToFinalReadings(
+      completeData
+    );
 
     console.log(`✅ Reading saved: ${readingId}`);
 
@@ -295,7 +337,7 @@ async function processCompleteReading(mergedData) {
     // STEP 6: UPDATE BUFFER STATUS
     // ========================================
     console.log("✏️ Marking buffer as merged...");
-    await waterQualityModel.markBufferAsMerged(buffer_ids);
+    await getWaterQualityModel().markBufferAsMerged(buffer_ids);
     console.log("✅ Buffer updated");
 
     // ========================================
@@ -345,7 +387,7 @@ async function createAlertsForViolations(readingId, ipalId, violations) {
       };
 
       // Save alert using alertModel
-      const alertId = await alertModel.createAlert(alertData);
+      const alertId = await getAlertModel().createAlert(alertData);
 
       alertsCreated.push({
         alert_id: alertId,
@@ -401,7 +443,7 @@ async function sendNotificationsForAlerts(alerts) {
     // 1. Get admin/manager emails from Firestore
     // 2. Send 1 email with ALL violations
     // 3. Send FCM (if tokens available)
-    const result = await notificationService.sendAlerts(alertsToSend);
+    const result = await getNotificationService().sendAlerts(alertsToSend);
 
     if (result.success) {
       console.log("✅ Notifications sent successfully");
@@ -475,7 +517,7 @@ function validateReadingInput(data) {
  */
 async function getBufferStatus(ipalId = null) {
   try {
-    return await waterQualityModel.getBufferStatus(ipalId);
+    return await getWaterQualityModel().getBufferStatus(ipalId);
   } catch (error) {
     console.error("❌ Error getting buffer status:", error);
     throw error;
@@ -488,7 +530,7 @@ async function getBufferStatus(ipalId = null) {
 async function cleanupExpiredBuffer() {
   try {
     console.log("🧹 Cleaning expired buffer...");
-    const result = await waterQualityModel.cleanupExpiredBuffer();
+    const result = await getWaterQualityModel().cleanupExpiredBuffer();
     console.log(`✅ Cleaned ${result.deleted} expired document(s)`);
     return result;
   } catch (error) {
@@ -506,7 +548,7 @@ async function checkIncompleteReadings(ipalId) {
       Date.now() - CONFIG.ALERT_INCOMPLETE_AFTER * 60 * 1000
     );
 
-    const unmerged = await waterQualityModel.getUnmergedReadings(
+    const unmerged = await getWaterQualityModel().getUnmergedReadings(
       ipalId,
       CONFIG.ALERT_INCOMPLETE_AFTER
     );

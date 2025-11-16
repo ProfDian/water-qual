@@ -4,7 +4,16 @@
  * ========================================
  */
 
-const reportService = require("../services/reportService");
+// ⚡ Lazy load service to reduce cold start
+let reportService;
+
+const getReportService = () => {
+  if (!reportService) {
+    console.log("⚡ Loading reportService...");
+    reportService = require("../services/reportService");
+  }
+  return reportService;
+};
 
 /**
  * GET /api/reports/export
@@ -60,7 +69,8 @@ exports.exportReport = async (req, res) => {
 
     // Fetch data
     console.log("🔍 Fetching data...");
-    const data = await reportService.fetchWaterQualityData(filters);
+    const service = getReportService();
+    const data = await service.fetchWaterQualityData(filters);
 
     if (data.length === 0) {
       return res.status(404).json({
@@ -72,7 +82,7 @@ exports.exportReport = async (req, res) => {
     console.log(`✅ Found ${data.length} readings`);
 
     // Calculate summary
-    const summary = reportService.calculateSummary(data, paramList);
+    const summary = service.calculateSummary(data, paramList);
 
     // Generate file based on format
     let fileContent;
@@ -82,14 +92,14 @@ exports.exportReport = async (req, res) => {
     try {
       if (format === "csv") {
         console.log("📄 Generating CSV...");
-        fileContent = reportService.generateCSV(data);
+        fileContent = service.generateCSV(data);
         contentType = "text/csv; charset=utf-8";
         fileName = `water_quality_report_${start_date}_${end_date}.csv`;
 
         console.log(`✅ CSV generated: ${fileName}`);
       } else if (format === "excel") {
         console.log("📊 Generating Excel...");
-        fileContent = await reportService.generateExcel(data, summary, filters);
+        fileContent = await service.generateExcel(data, summary, filters);
         contentType =
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
         fileName = `water_quality_report_${start_date}_${end_date}.xlsx`;
@@ -99,7 +109,7 @@ exports.exportReport = async (req, res) => {
         );
       } else if (format === "pdf") {
         console.log("📄 Generating PDF...");
-        fileContent = await reportService.generatePDF(data, summary, filters);
+        fileContent = await service.generatePDF(data, summary, filters);
         contentType = "application/pdf";
         fileName = `water_quality_report_${start_date}_${end_date}.pdf`;
 
@@ -222,7 +232,8 @@ exports.previewReport = async (req, res) => {
       location,
     };
 
-    const data = await reportService.fetchWaterQualityData(filters);
+    const service = getReportService();
+    const data = await service.fetchWaterQualityData(filters);
 
     if (data.length === 0) {
       return res.status(404).json({
@@ -231,7 +242,7 @@ exports.previewReport = async (req, res) => {
       });
     }
 
-    const summary = reportService.calculateSummary(data, paramList);
+    const summary = service.calculateSummary(data, paramList);
 
     console.log(`✅ Preview generated: ${data.length} readings`);
 
