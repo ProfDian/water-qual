@@ -179,22 +179,88 @@ exports.getAllSensors = async (req, res) => {
       });
     }
 
+    const now = new Date();
     const sensors = [];
+
+    console.log(`🕐 Current time: ${now.toISOString()}`);
+
     snapshot.forEach((doc) => {
-      sensors.push({
+      const data = doc.data();
+
+      // 🆕 CALCULATE ONLINE STATUS on-the-fly
+      let online_status = "offline";
+      let debugInfo = { sensorId: doc.id };
+
+      // Check both last_updated_at and latest_reading.timestamp
+      const lastUpdateField =
+        data.last_updated_at || data.latest_reading?.timestamp;
+
+      if (lastUpdateField) {
+        const lastUpdate = lastUpdateField.toDate
+          ? lastUpdateField.toDate()
+          : new Date(lastUpdateField);
+        const minutesAgo = (now - lastUpdate) / 1000 / 60;
+
+        debugInfo.lastUpdate = lastUpdate.toISOString();
+        debugInfo.minutesAgo = minutesAgo.toFixed(2);
+
+        // Online jika update < 5 menit yang lalu
+        online_status = minutesAgo < 5 ? "online" : "offline";
+        debugInfo.online_status = online_status;
+
+        console.log(
+          `   Sensor ${doc.id}: ${minutesAgo.toFixed(
+            1
+          )}min ago → ${online_status}`
+        );
+      } else {
+        console.log(`   Sensor ${doc.id}: NO last_updated_at → offline`);
+      }
+
+      // Format timestamps
+      const sensorData = {
         id: doc.id,
-        ...doc.data(),
-        added_at: doc.data().added_at?.toDate
-          ? doc.data().added_at.toDate().toISOString()
+        ...data,
+        added_at: data.added_at?.toDate
+          ? data.added_at.toDate().toISOString()
           : null,
-      });
+        last_calibration: data.last_calibration?.toDate
+          ? data.last_calibration.toDate().toISOString()
+          : null,
+        last_updated_at: data.last_updated_at?.toDate
+          ? data.last_updated_at.toDate().toISOString()
+          : null,
+        online_status, // 🆕 ADDED
+      };
+
+      // Format latest_reading timestamps if exists
+      if (data.latest_reading?.timestamp) {
+        sensorData.latest_reading = {
+          ...data.latest_reading,
+          timestamp: data.latest_reading.timestamp.toDate
+            ? data.latest_reading.timestamp.toDate().toISOString()
+            : data.latest_reading.timestamp,
+        };
+      }
+
+      sensors.push(sensorData);
     });
 
     console.log(`✅ Found ${sensors.length} sensors`);
 
+    // 🆕 COUNT ONLINE SENSORS
+    const onlineCount = sensors.filter(
+      (s) => s.online_status === "online"
+    ).length;
+    console.log(
+      `   ${onlineCount} online, ${sensors.length - onlineCount} offline`
+    );
+
     return res.status(200).json({
       success: true,
       count: sensors.length,
+      online_count: onlineCount,
+      offline_count: sensors.length - onlineCount,
       data: sensors,
     });
   } catch (error) {

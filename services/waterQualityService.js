@@ -18,6 +18,7 @@ let fuzzyService;
 let validationService;
 let alertModel;
 let notificationService;
+let sensorModel;
 
 const getWaterQualityModel = () => {
   if (!waterQualityModel) {
@@ -53,6 +54,13 @@ const getNotificationService = () => {
     notificationService = require("./notificationService");
   }
   return notificationService;
+};
+
+const getSensorModel = () => {
+  if (!sensorModel) {
+    sensorModel = require("../models/sensorModel");
+  }
+  return sensorModel;
 };
 
 /**
@@ -341,6 +349,19 @@ async function processCompleteReading(mergedData) {
     console.log("✅ Buffer updated");
 
     // ========================================
+    // STEP 7: UPDATE SENSORS (NEW!)
+    // ========================================
+    console.log("🔧 Updating sensors with latest readings...");
+    await updateSensorsFromReading(
+      readingId,
+      sensor_mapping,
+      inlet,
+      outlet,
+      fuzzyResult.status
+    );
+    console.log("✅ Sensors updated");
+
+    // ========================================
     // RETURN COMPLETE RESULT
     // ========================================
     return {
@@ -580,6 +601,140 @@ async function checkIncompleteReadings(ipalId) {
 
 /**
  * ========================================
+ * SENSOR UPDATE FUNCTIONS (NEW!)
+ * ========================================
+ */
+
+/**
+ * Update sensors dengan latest readings dari water_quality_readings
+ * @param {string} readingId - ID of water_quality_readings document
+ * @param {Object} sensor_mapping - Mapping of sensor IDs
+ * @param {Object} inlet - Inlet sensor data
+ * @param {Object} outlet - Outlet sensor data
+ * @param {string} qualityStatus - Overall quality status (normal/warning/critical)
+ */
+async function updateSensorsFromReading(
+  readingId,
+  sensor_mapping,
+  inlet,
+  outlet,
+  qualityStatus
+) {
+  try {
+    if (!sensor_mapping || Object.keys(sensor_mapping).length === 0) {
+      console.log("ℹ️  No sensor_mapping provided, skipping sensor update");
+      return;
+    }
+
+    console.log("🔧 Parsing sensor_mapping...");
+    const sensorsToUpdate = [];
+
+    // Get current timestamp from reading document
+    const { admin } = require("../config/firebase-config");
+    const db = admin.firestore();
+
+    // Fetch the reading document to get its timestamp
+    let timestamp;
+    try {
+      const readingDoc = await db
+        .collection("water_quality_readings")
+        .doc(readingId)
+        .get();
+      if (readingDoc.exists) {
+        timestamp = readingDoc.data().timestamp;
+        console.log(
+          `📅 Using timestamp from reading: ${
+            timestamp?.toDate ? timestamp.toDate().toISOString() : timestamp
+          }`
+        );
+      }
+    } catch (err) {
+      console.warn(
+        "⚠️ Could not fetch reading timestamp, using server timestamp"
+      );
+    }
+
+    // Fallback to server timestamp if reading not found
+    if (!timestamp) {
+      timestamp = admin.firestore.Timestamp.now();
+    }
+
+    // Parse inlet sensors
+    if (inlet) {
+      const inletMapping = {
+        inlet_ph: inlet.ph,
+        inlet_tds: inlet.tds,
+        inlet_turbidity: inlet.turbidity,
+        inlet_temperature: inlet.temperature,
+      };
+
+      for (const [key, value] of Object.entries(inletMapping)) {
+        const sensorId = sensor_mapping[key];
+        if (sensorId && value !== null && value !== undefined) {
+          sensorsToUpdate.push({
+            sensorId: sensorId,
+            readingData: {
+              value: value,
+              timestamp: timestamp,
+              reading_id: readingId,
+              status: qualityStatus || "normal",
+            },
+          });
+        }
+      }
+    }
+
+    // Parse outlet sensors
+    if (outlet) {
+      const outletMapping = {
+        outlet_ph: outlet.ph,
+        outlet_tds: outlet.tds,
+        outlet_turbidity: outlet.turbidity,
+        outlet_temperature: outlet.temperature,
+      };
+
+      for (const [key, value] of Object.entries(outletMapping)) {
+        const sensorId = sensor_mapping[key];
+        if (sensorId && value !== null && value !== undefined) {
+          sensorsToUpdate.push({
+            sensorId: sensorId,
+            readingData: {
+              value: value,
+              timestamp: timestamp,
+              reading_id: readingId,
+              status: qualityStatus || "normal",
+            },
+          });
+        }
+      }
+    }
+
+    if (sensorsToUpdate.length === 0) {
+      console.log("ℹ️  No sensors to update");
+      return;
+    }
+
+    console.log(`📦 Updating ${sensorsToUpdate.length} sensor(s)...`);
+
+    // Batch update untuk efficiency
+    const result = await getSensorModel().batchUpdateSensorsReading(
+      sensorsToUpdate
+    );
+
+    console.log(
+      `✅ Sensors updated: ${result.success} success, ${result.failed} failed, ${result.skipped} skipped`
+    );
+
+    return result;
+  } catch (error) {
+    console.error("❌ Error updating sensors from reading:", error);
+    // Don't throw - this should not block the main flow
+    // Sensor update is a secondary operation
+  }
+}
+
+/**
+ * ========================================
  * EXPORTS
  * ========================================
  */
@@ -593,6 +748,9 @@ module.exports = {
   // Alert & notification helpers
   createAlertsForViolations,
   sendNotificationsForAlerts,
+
+  // Sensor update (NEW!)
+  updateSensorsFromReading,
 
   // Monitoring & debugging
   getBufferStatus,
