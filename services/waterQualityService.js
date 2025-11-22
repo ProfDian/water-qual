@@ -383,7 +383,7 @@ async function createAlertsForViolations(readingId, ipalId, violations) {
         status: "active",
         rule: `${violation.parameter} ${violation.condition}`,
         message: violation.message,
-        timestamp: new Date(),
+        // Note: created_at will be added by alertModel using serverTimestamp()
       };
 
       // Save alert using alertModel
